@@ -1,0 +1,5 @@
+2026-03-21T16:00:00Z ETCH-002 INFO process Start - Pressure: 2.1 Torr
+{"id": 2, "timestamp": "2026-03-21T16:01:00Z", "tool_id": "ETCH-002", "severity": "WARNING", "log_type": "alarm", "event_name": "TempHigh", "alarm_code": "A202", "parameter_name": "Temperature", "parameter_value": 120, "unit": "C", "normalized_message": "Temperature exceeded threshold."}
+2026-03-21T16:02:00Z ETCH-002 ERROR fault PumpFail - PumpSpeed: 0 RPM
+{"id": 4, "timestamp": "2026-03-21T16:03:00Z", "tool_id": "ETCH-002", "severity": "INFO", "log_type": "process", "event_name": "End", "alarm_code": null, "parameter_name": "Duration", "parameter_value": 120, "unit": "sec", "normalized_message": "Process ended after 120 seconds."}
+Random unstructured log entry: System rebooted unexpectedly at 16:04

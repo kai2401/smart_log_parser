@@ -1,0 +1,60 @@
+<134>2024-03-01 08:00:00 ANNEAL-08 tool_controller[1234]: Maintenance PM completed wafer=LOT1488-W12
+<134>2024-03-01 08:01:50 ETCH-02 tool_controller[1234]: Recipe completed vacuum_level=0.0Torr wafer=LOT8359-W22
+<134>2024-03-01 08:00:54 ETCH-01 tool_controller[1234]: System initialized vacuum_level=0.0Torr wafer=LOT4611-W21
+<134>2024-03-01 08:05:03 ANNEAL-08 tool_controller[1234]: Wafer unloaded flow_rate=117.8251sccm wafer=LOT1409-W02
+<130>2024-03-01 08:05:00 IMP-07 tool_controller[1234]: Alarm triggered: C201_SAFETY_INTLK alarm_code=C201_SAFETY_INTLK pressure=7.9017mTorr wafer=LOT9279-W16
+<134>2024-03-01 08:07:45 LITHO-06 tool_controller[1234]: Maintenance PM completed rf_power=367.3304W wafer=LOT4582-W14
+<132>2024-03-01 08:03:18 ANNEAL-08 tool_controller[1234]: Alarm triggered: W101_TEMP_DRIFT alarm_code=W101_TEMP_DRIFT temperature=393.376°C wafer=LOT1434-W17
+<134>2024-03-01 08:05:29 LITHO-06 tool_controller[1234]: Endpoint detected vacuum_level=0.0Torr wafer=LOT8359-W22
+<134>2024-03-01 08:13:04 ANNEAL-08 tool_controller[1234]: Process step completed rf_power=359.7347W wafer=LOT1106-W24
+<134>2024-03-01 08:02:51 IMP-07 tool_controller[1234]: Recipe started wafer=LOT8359-W22
+<134>2024-03-01 08:14:30 ANNEAL-08 tool_controller[1234]: Temperature stabilized wafer=LOT9935-W08
+<132>2024-03-01 08:10:49 ETCH-01 tool_controller[1234]: Alarm triggered: W103_ENDPOINT_DELAY alarm_code=W103_ENDPOINT_DELAY temperature=407.24°C wafer=LOT4811-W15
+<134>2024-03-01 08:15:24 LITHO-06 tool_controller[1234]: Recipe completed wafer=LOT2424-W09
+<134>2024-03-01 08:07:09 ANNEAL-08 tool_controller[1234]: System initialized wafer=LOT5012-W04
+<130>2024-03-01 08:15:38 PVD-04 tool_controller[1234]: Alarm triggered: C201_SAFETY_INTLK alarm_code=C201_SAFETY_INTLK wafer=LOT5557-W23
+<134>2024-03-01 08:29:45 ETCH-02 tool_controller[1234]: System initialized flow_rate=106.3958sccm wafer=LOT4811-W15
+<131>2024-03-01 08:12:32 CMP-05 tool_controller[1234]: Alarm triggered: E006_INTERLOCK_TRIP alarm_code=E006_INTERLOCK_TRIP wafer=LOT5557-W23
+<134>2024-03-01 08:15:52 PVD-04 tool_controller[1234]: System initialized flow_rate=100.9377sccm wafer=LOT4657-W05
+<131>2024-03-01 08:17:06 ANNEAL-08 tool_controller[1234]: Alarm triggered: E001_TEMP_HIGH alarm_code=E001_TEMP_HIGH wafer=LOT4657-W05
+<134>2024-03-01 08:19:00 ANNEAL-08 tool_controller[1234]: Wafer loaded vacuum_level=0.0Torr wafer=LOT9928-W19
+<132>2024-03-01 08:08:40 CVD-03 tool_controller[1234]: Alarm triggered: W101_TEMP_DRIFT alarm_code=W101_TEMP_DRIFT chuck_temp=20.7908°C wafer=LOT4582-W14
+<134>2024-03-01 08:10:51 CVD-03 tool_controller[1234]: RF power applied temperature=374.6424°C wafer=LOT9935-W08
+<132>2024-03-01 08:09:32 CMP-05 tool_controller[1234]: Alarm triggered: W102_FLOW_UNSTABLE alarm_code=W102_FLOW_UNSTABLE chuck_temp=20.676°C wafer=LOT1434-W17
+<131>2024-03-01 08:36:02 LITHO-06 tool_controller[1234]: Alarm triggered: E001_TEMP_HIGH alarm_code=E001_TEMP_HIGH wafer=LOT1409-W02
+<132>2024-03-01 08:36:48 CMP-05 tool_controller[1234]: Alarm triggered: W101_TEMP_DRIFT alarm_code=W101_TEMP_DRIFT vacuum_level=0.0Torr wafer=LOT4582-W14
+<134>2024-03-01 08:17:05 IMP-07 tool_controller[1234]: Wafer loaded rf_power=391.5686W wafer=LOT5557-W23
+<134>2024-03-01 08:22:58 CVD-03 tool_controller[1234]: Process step completed pressure=12.5123mTorr wafer=LOT1520-W11
+<134>2024-03-01 08:18:00 ANNEAL-08 tool_controller[1234]: Recipe completed wafer=LOT9935-W08
+<134>2024-03-01 08:27:32 IMP-07 tool_controller[1234]: Maintenance PM completed wafer=LOT1520-W11
+<134>2024-03-01 08:51:43 CVD-03 tool_controller[1234]: Endpoint detected temperature=444.501°C wafer=LOT4811-W15
+<130>2024-03-01 08:37:00 ANNEAL-08 tool_controller[1234]: Alarm triggered: C201_SAFETY_INTLK alarm_code=C201_SAFETY_INTLK wafer=LOT9928-W19
+<134>2024-03-01 08:37:43 ANNEAL-08 tool_controller[1234]: Wafer loaded vacuum_level=0.0Torr wafer=LOT5012-W04
+<134>2024-03-01 08:08:32 PVD-04 tool_controller[1234]: RF power applied chuck_temp=21.416°C wafer=LOT5506-W03
+<134>2024-03-01 08:48:57 ETCH-02 tool_controller[1234]: System initialized chuck_temp=24.6968°C wafer=LOT2535-W13
+<134>2024-03-01 08:42:30 IMP-07 tool_controller[1234]: Maintenance PM completed wafer=LOT1409-W02
+<134>2024-03-01 08:40:50 ANNEAL-08 tool_controller[1234]: Gas flow stabilized wafer=LOT4657-W05
+<134>2024-03-01 08:36:00 CMP-05 tool_controller[1234]: Chamber vented flow_rate=98.3297sccm wafer=LOT1434-W17
+<134>2024-03-01 08:07:24 LITHO-06 tool_controller[1234]: Endpoint detected vacuum_level=0.0Torr wafer=LOT4582-W14
+<132>2024-03-01 08:27:14 PVD-04 tool_controller[1234]: Alarm triggered: W104_RECIPE_DEVIATION alarm_code=W104_RECIPE_DEVIATION wafer=LOT9279-W16
+<134>2024-03-01 09:03:03 PVD-04 tool_controller[1234]: Recipe started rf_power=328.3295W wafer=LOT5012-W04
+<134>2024-03-01 09:05:20 PVD-04 tool_controller[1234]: Maintenance PM completed vacuum_level=0.0Torr wafer=LOT9279-W16
+<134>2024-03-01 09:04:14 ANNEAL-08 tool_controller[1234]: RF power applied wafer=LOT3286-W06
+<132>2024-03-01 08:38:30 CMP-05 tool_controller[1234]: Alarm triggered: W103_ENDPOINT_DELAY alarm_code=W103_ENDPOINT_DELAY wafer=LOT9935-W08
+<132>2024-03-01 08:34:24 CMP-05 tool_controller[1234]: Alarm triggered: W103_ENDPOINT_DELAY alarm_code=W103_ENDPOINT_DELAY chuck_temp=24.754°C wafer=LOT5557-W23
+<134>2024-03-01 09:21:24 CMP-05 tool_controller[1234]: Pump engaged rf_power=467.1437W wafer=LOT8359-W22
+<134>2024-03-01 08:35:15 ETCH-01 tool_controller[1234]: Chamber vented vacuum_level=0.0Torr wafer=LOT5506-W03
+<131>2024-03-01 08:26:50 CMP-05 tool_controller[1234]: Alarm triggered: E001_TEMP_HIGH alarm_code=E001_TEMP_HIGH chuck_temp=21.4025°C wafer=LOT2424-W09
+<134>2024-03-01 08:29:46 PVD-04 tool_controller[1234]: Chamber vented wafer=LOT1520-W11
+<134>2024-03-01 09:26:24 CVD-03 tool_controller[1234]: Temperature stabilized rf_power=396.8511W wafer=LOT3286-W06
+<134>2024-03-01 08:28:35 CMP-05 tool_controller[1234]: Recipe completed pressure=10.2725mTorr wafer=LOT1409-W02
+<131>2024-03-01 08:26:40 IMP-07 tool_controller[1234]: Alarm triggered: E004_RF_REFLECT_HIGH alarm_code=E004_RF_REFLECT_HIGH pressure=13.9029mTorr wafer=LOT1409-W02
+<134>2024-03-01 08:39:57 ETCH-01 tool_controller[1234]: Process step completed wafer=LOT7873-W20
+<131>2024-03-01 09:19:44 ANNEAL-08 tool_controller[1234]: Alarm triggered: E003_GAS_FLOW_LOW alarm_code=E003_GAS_FLOW_LOW wafer=LOT1434-W17
+<134>2024-03-01 08:21:12 LITHO-06 tool_controller[1234]: Maintenance PM completed wafer=LOT4611-W21
+<132>2024-03-01 09:33:36 LITHO-06 tool_controller[1234]: Alarm triggered: W102_FLOW_UNSTABLE alarm_code=W102_FLOW_UNSTABLE wafer=LOT8359-W22
+<131>2024-03-01 09:49:05 IMP-07 tool_controller[1234]: Alarm triggered: E004_RF_REFLECT_HIGH alarm_code=E004_RF_REFLECT_HIGH pressure=14.3528mTorr wafer=LOT1520-W11
+<134>2024-03-01 08:09:20 CMP-05 tool_controller[1234]: Process step completed wafer=LOT3615-W25
+<134>2024-03-01 09:36:54 ETCH-01 tool_controller[1234]: Recipe started rf_power=362.023W wafer=LOT5557-W23
+<132>2024-03-01 08:58:58 CMP-05 tool_controller[1234]: Alarm triggered: W102_FLOW_UNSTABLE alarm_code=W102_FLOW_UNSTABLE wafer=LOT7912-W10
+<134>2024-03-01 08:26:33 ANNEAL-08 tool_controller[1234]: Pump engaged rf_power=452.6696W wafer=LOT7873-W20

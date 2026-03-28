@@ -1,0 +1,90 @@
+2026-03-21T16:10:00Z ETCH-003 INFO process Start - Pressure: 2.0 Torr
+2026-03-21T16:10:01Z ETCH-003 WARNING alarm TempHigh - Temperature: 120 C
+2026-03-21T16:10:02Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:10:03Z ETCH-003 INFO process StepComplete - Step: 1
+2026-03-21T16:10:04Z ETCH-003 INFO process StepComplete - Step: 2
+2026-03-21T16:10:05Z ETCH-003 WARNING alarm PressureLow - Pressure: 1.2 Torr
+2026-03-21T16:10:06Z ETCH-003 INFO process Start - Pressure: 2.1 Torr
+2026-03-21T16:10:07Z ETCH-003 WARNING alarm TempHigh - Temperature: 121 C
+2026-03-21T16:10:08Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:10:09Z ETCH-003 INFO process StepComplete - Step: 3
+2026-03-21T16:10:10Z ETCH-003 INFO process StepComplete - Step: 4
+2026-03-21T16:10:11Z ETCH-003 WARNING alarm PressureLow - Pressure: 1.1 Torr
+2026-03-21T16:10:12Z ETCH-003 INFO process Start - Pressure: 2.2 Torr
+2026-03-21T16:10:13Z ETCH-003 WARNING alarm TempHigh - Temperature: 122 C
+2026-03-21T16:10:14Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:10:15Z ETCH-003 INFO process StepComplete - Step: 5
+2026-03-21T16:10:16Z ETCH-003 INFO process StepComplete - Step: 6
+2026-03-21T16:10:17Z ETCH-003 WARNING alarm PressureLow - Pressure: 1.0 Torr
+2026-03-21T16:10:18Z ETCH-003 INFO process Start - Pressure: 2.3 Torr
+2026-03-21T16:10:19Z ETCH-003 WARNING alarm TempHigh - Temperature: 123 C
+2026-03-21T16:10:20Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:10:21Z ETCH-003 INFO process StepComplete - Step: 7
+2026-03-21T16:10:22Z ETCH-003 INFO process StepComplete - Step: 8
+2026-03-21T16:10:23Z ETCH-003 WARNING alarm PressureLow - Pressure: 0.9 Torr
+2026-03-21T16:10:24Z ETCH-003 INFO process Start - Pressure: 2.4 Torr
+2026-03-21T16:10:25Z ETCH-003 WARNING alarm TempHigh - Temperature: 124 C
+2026-03-21T16:10:26Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:10:27Z ETCH-003 INFO process StepComplete - Step: 9
+2026-03-21T16:10:28Z ETCH-003 INFO process StepComplete - Step: 10
+2026-03-21T16:10:29Z ETCH-003 WARNING alarm PressureLow - Pressure: 0.8 Torr
+2026-03-21T16:10:30Z ETCH-003 INFO process Start - Pressure: 2.5 Torr
+2026-03-21T16:10:31Z ETCH-003 WARNING alarm TempHigh - Temperature: 125 C
+2026-03-21T16:10:32Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:10:33Z ETCH-003 INFO process StepComplete - Step: 11
+2026-03-21T16:10:34Z ETCH-003 INFO process StepComplete - Step: 12
+2026-03-21T16:10:35Z ETCH-003 WARNING alarm PressureLow - Pressure: 0.7 Torr
+2026-03-21T16:10:36Z ETCH-003 INFO process Start - Pressure: 2.6 Torr
+2026-03-21T16:10:37Z ETCH-003 WARNING alarm TempHigh - Temperature: 126 C
+2026-03-21T16:10:38Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:10:39Z ETCH-003 INFO process StepComplete - Step: 13
+2026-03-21T16:10:40Z ETCH-003 INFO process StepComplete - Step: 14
+2026-03-21T16:10:41Z ETCH-003 WARNING alarm PressureLow - Pressure: 0.6 Torr
+2026-03-21T16:10:42Z ETCH-003 INFO process Start - Pressure: 2.7 Torr
+2026-03-21T16:10:43Z ETCH-003 WARNING alarm TempHigh - Temperature: 127 C
+2026-03-21T16:10:44Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:10:45Z ETCH-003 INFO process StepComplete - Step: 15
+2026-03-21T16:10:46Z ETCH-003 INFO process StepComplete - Step: 16
+2026-03-21T16:10:47Z ETCH-003 WARNING alarm PressureLow - Pressure: 0.5 Torr
+2026-03-21T16:10:48Z ETCH-003 INFO process Start - Pressure: 2.8 Torr
+2026-03-21T16:10:49Z ETCH-003 WARNING alarm TempHigh - Temperature: 128 C
+2026-03-21T16:10:50Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:10:51Z ETCH-003 INFO process StepComplete - Step: 17
+2026-03-21T16:10:52Z ETCH-003 INFO process StepComplete - Step: 18
+2026-03-21T16:10:53Z ETCH-003 WARNING alarm PressureLow - Pressure: 0.4 Torr
+2026-03-21T16:10:54Z ETCH-003 INFO process Start - Pressure: 2.9 Torr
+2026-03-21T16:10:55Z ETCH-003 WARNING alarm TempHigh - Temperature: 129 C
+2026-03-21T16:10:56Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:10:57Z ETCH-003 INFO process StepComplete - Step: 19
+2026-03-21T16:10:58Z ETCH-003 INFO process StepComplete - Step: 20
+2026-03-21T16:10:59Z ETCH-003 WARNING alarm PressureLow - Pressure: 0.3 Torr
+2026-03-21T16:11:00Z ETCH-003 INFO process Start - Pressure: 3.0 Torr
+2026-03-21T16:11:01Z ETCH-003 WARNING alarm TempHigh - Temperature: 130 C
+2026-03-21T16:11:02Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:11:03Z ETCH-003 INFO process StepComplete - Step: 21
+2026-03-21T16:11:04Z ETCH-003 INFO process StepComplete - Step: 22
+2026-03-21T16:11:05Z ETCH-003 WARNING alarm PressureLow - Pressure: 0.2 Torr
+2026-03-21T16:11:06Z ETCH-003 INFO process Start - Pressure: 3.1 Torr
+2026-03-21T16:11:07Z ETCH-003 WARNING alarm TempHigh - Temperature: 131 C
+2026-03-21T16:11:08Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:11:09Z ETCH-003 INFO process StepComplete - Step: 23
+2026-03-21T16:11:10Z ETCH-003 INFO process StepComplete - Step: 24
+2026-03-21T16:11:11Z ETCH-003 WARNING alarm PressureLow - Pressure: 0.1 Torr
+2026-03-21T16:11:12Z ETCH-003 INFO process Start - Pressure: 3.2 Torr
+2026-03-21T16:11:13Z ETCH-003 WARNING alarm TempHigh - Temperature: 132 C
+2026-03-21T16:11:14Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:11:15Z ETCH-003 INFO process StepComplete - Step: 25
+2026-03-21T16:11:16Z ETCH-003 INFO process StepComplete - Step: 26
+2026-03-21T16:11:17Z ETCH-003 WARNING alarm PressureLow - Pressure: 0.0 Torr
+2026-03-21T16:11:18Z ETCH-003 INFO process Start - Pressure: 3.3 Torr
+2026-03-21T16:11:19Z ETCH-003 WARNING alarm TempHigh - Temperature: 133 C
+2026-03-21T16:11:20Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:11:21Z ETCH-003 INFO process StepComplete - Step: 27
+2026-03-21T16:11:22Z ETCH-003 INFO process StepComplete - Step: 28
+2026-03-21T16:11:23Z ETCH-003 WARNING alarm PressureLow - Pressure: -0.1 Torr
+2026-03-21T16:11:24Z ETCH-003 INFO process Start - Pressure: 3.4 Torr
+2026-03-21T16:11:25Z ETCH-003 WARNING alarm TempHigh - Temperature: 134 C
+2026-03-21T16:11:26Z ETCH-003 ERROR fault PumpFail - PumpSpeed: 0 RPM
+2026-03-21T16:11:27Z ETCH-003 INFO process StepComplete - Step: 29
+2026-03-21T16:11:28Z ETCH-003 INFO process StepComplete - Step: 30
+2026-03-21T16:11:29Z ETCH-003 WARNING alarm PressureLow - Pressure: -0.2 Torr

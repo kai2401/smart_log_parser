@@ -1,0 +1,63 @@
+# Semiconductor Tool Event Log — Maintenance & Process Record
+# Generated for demo purposes
+
+2024-03-01T08:00:00 [PVD-04] WRN: Alarm triggered: W104_RECIPE_DEVIATION | alarm_code=W104_RECIPE_DEVIATION | recipe=LITHO_DUV_v5 | wafer=LOT5506-W03 | flow_rate=81.354sccm
+2024-03-01T08:01:22 [ETCH-02] INF: Gas flow stabilized | recipe=LITHO_DUV_v5 | wafer=LOT1434-W17 | pressure=8.1826mTorr
+2024-03-01T08:01:12 [ANNEAL-08] INF: Recipe started | recipe=LITHO_DUV_v5 | wafer=LOT4811-W15 | chuck_temp=22.0708°C
+2024-03-01T08:04:06 [ETCH-01] INF: Recipe started | recipe=IMP_B_v2 | wafer=LOT7912-W10
+2024-03-01T08:07:36 [ETCH-01] WRN: Alarm triggered: W104_RECIPE_DEVIATION | alarm_code=W104_RECIPE_DEVIATION | recipe=LITHO_DUV_v5 | wafer=LOT5506-W03
+2024-03-01T08:01:30 [ETCH-01] ERR: Alarm triggered: E003_GAS_FLOW_LOW | alarm_code=E003_GAS_FLOW_LOW | recipe=ETH_SiO2_v3 | wafer=LOT9279-W16 | pressure=12.9438mTorr
+2024-03-01T08:06:18 [LITHO-06] CRT: Alarm triggered: C202_DOOR_OPEN | alarm_code=C202_DOOR_OPEN | recipe=CMP_Cu_v4 | wafer=LOT4811-W15
+2024-03-01T08:11:19 [CVD-03] WRN: Alarm triggered: W104_RECIPE_DEVIATION | alarm_code=W104_RECIPE_DEVIATION | recipe=PVD_Al_v1 | wafer=LOT5012-W04 | vacuum_level=0.0Torr
+2024-03-01T08:15:28 [ETCH-01] WRN: Alarm triggered: W104_RECIPE_DEVIATION | alarm_code=W104_RECIPE_DEVIATION | recipe=PVD_Al_v1 | wafer=LOT4811-W15 | pressure=7.3839mTorr
+2024-03-01T08:15:18 [ETCH-02] INF: System initialized | recipe=IMP_B_v2 | wafer=LOT4582-W14 | temperature=374.3971°C
+2024-03-01T08:03:00 [ETCH-02] INF: Maintenance PM completed | recipe=CMP_Cu_v4 | wafer=LOT7873-W20 | pressure=12.286mTorr
+2024-03-01T08:06:47 [ETCH-01] INF: Maintenance PM completed | recipe=PVD_Al_v1 | wafer=LOT9935-W08 | chuck_temp=23.0317°C
+2024-03-01T08:19:12 [LITHO-06] INF: Wafer unloaded | recipe=CVD_TiN_v2 | wafer=LOT8359-W22 | flow_rate=84.3897sccm
+2024-03-01T08:06:56 [IMP-07] INF: Temperature stabilized | recipe=ETH_SiO2_v3 | wafer=LOT1488-W12
+2024-03-01T08:17:58 [LITHO-06] WRN: Alarm triggered: W104_RECIPE_DEVIATION | alarm_code=W104_RECIPE_DEVIATION | recipe=CMP_Cu_v4 | wafer=LOT4657-W05
+2024-03-01T08:19:30 [ANNEAL-08] INF: Maintenance PM completed | recipe=CVD_TiN_v2 | wafer=LOT7912-W10
+2024-03-01T08:18:24 [ETCH-01] INF: Wafer loaded | recipe=CMP_Cu_v4 | wafer=LOT4257-W18
+2024-03-01T08:11:54 [PVD-04] INF: Process step completed | recipe=ETH_SiO2_v3 | wafer=LOT4811-W15
+2024-03-01T08:30:36 [PVD-04] INF: Gas flow stabilized | recipe=CMP_Cu_v4 | wafer=LOT8359-W22
+2024-03-01T08:06:01 [PVD-04] ERR: Alarm triggered: E005_VACUUM_LEAK | alarm_code=E005_VACUUM_LEAK | recipe=LITHO_DUV_v5 | wafer=LOT1106-W24
+2024-03-01T08:12:00 [LITHO-06] INF: Maintenance PM completed | recipe=ETH_SiO2_v3 | wafer=LOT2679-W07
+2024-03-01T08:37:06 [ANNEAL-08] ERR: Alarm triggered: E002_PRESSURE_FAULT | alarm_code=E002_PRESSURE_FAULT | recipe=IMP_B_v2 | wafer=LOT7873-W20
+2024-03-01T08:14:40 [LITHO-06] WRN: Alarm triggered: W103_ENDPOINT_DELAY | alarm_code=W103_ENDPOINT_DELAY | recipe=CMP_Cu_v4 | wafer=LOT4811-W15
+2024-03-01T08:21:28 [ANNEAL-08] INF: Process step completed | recipe=IMP_B_v2 | wafer=LOT9279-W16 | flow_rate=91.8627sccm
+2024-03-01T08:06:00 [PVD-04] WRN: Alarm triggered: W104_RECIPE_DEVIATION | alarm_code=W104_RECIPE_DEVIATION | recipe=ETH_SiO2_v3 | wafer=LOT2424-W09
+2024-03-01T08:14:35 [LITHO-06] INF: RF power applied | recipe=LITHO_DUV_v5 | wafer=LOT9935-W08 | vacuum_level=0.0Torr
+2024-03-01T08:44:12 [ANNEAL-08] INF: Wafer loaded | recipe=IMP_B_v2 | wafer=LOT1488-W12 | rf_power=334.5014W
+2024-03-01T08:35:33 [ETCH-01] INF: System initialized | recipe=ETH_SiO2_v3 | wafer=LOT8359-W22
+2024-03-01T08:12:36 [PVD-04] INF: RF power applied | recipe=CVD_TiN_v2 | wafer=LOT2824-W01 | temperature=411.4377°C
+2024-03-01T08:34:19 [ANNEAL-08] INF: Recipe started | recipe=LITHO_DUV_v5 | wafer=LOT4257-W18
+2024-03-01T08:51:00 [CMP-05] INF: Maintenance PM completed | recipe=PVD_Al_v1 | wafer=LOT2824-W01 | pressure=5.8303mTorr
+2024-03-01T08:11:22 [CVD-03] INF: Process step completed | recipe=LITHO_DUV_v5 | wafer=LOT1434-W17
+2024-03-01T08:32:00 [ETCH-02] INF: Wafer unloaded | recipe=CMP_Cu_v4 | wafer=LOT4811-W15 | pressure=8.0384mTorr
+2024-03-01T09:05:27 [ETCH-01] INF: Chamber vented | recipe=CMP_Cu_v4 | wafer=LOT2535-W13
+2024-03-01T08:06:14 [CVD-03] INF: Process step completed | recipe=CMP_Cu_v4 | wafer=LOT4611-W21 | temperature=439.2983°C
+2024-03-01T08:08:45 [PVD-04] INF: Endpoint detected | recipe=IMP_B_v2 | wafer=LOT9928-W19
+2024-03-01T08:11:24 [CMP-05] ERR: Alarm triggered: E002_PRESSURE_FAULT | alarm_code=E002_PRESSURE_FAULT | recipe=LITHO_DUV_v5 | wafer=LOT8359-W22 | flow_rate=80.7747sccm
+2024-03-01T09:10:55 [IMP-07] ERR: Alarm triggered: E002_PRESSURE_FAULT | alarm_code=E002_PRESSURE_FAULT | recipe=PVD_Al_v1 | wafer=LOT3286-W06 | rf_power=436.4829W
+2024-03-01T08:50:02 [LITHO-06] INF: Maintenance PM completed | recipe=IMP_B_v2 | wafer=LOT4657-W05 | chuck_temp=23.7016°C
+2024-03-01T08:25:21 [ETCH-02] INF: System initialized | recipe=LITHO_DUV_v5 | wafer=LOT7873-W20
+2024-03-01T09:00:40 [CMP-05] WRN: Alarm triggered: W103_ENDPOINT_DELAY | alarm_code=W103_ENDPOINT_DELAY | recipe=CMP_Cu_v4 | wafer=LOT9279-W16 | rf_power=387.1168W
+2024-03-01T09:06:17 [IMP-07] INF: Wafer unloaded | recipe=LITHO_DUV_v5 | wafer=LOT7912-W10 | temperature=376.1592°C
+2024-03-01T08:20:18 [IMP-07] INF: Endpoint detected | recipe=ETH_SiO2_v3 | wafer=LOT5506-W03 | flow_rate=85.2875sccm
+2024-03-01T08:15:03 [CVD-03] INF: Pump engaged | recipe=LITHO_DUV_v5 | wafer=LOT4257-W18
+2024-03-01T08:15:24 [LITHO-06] INF: Process step completed | recipe=LITHO_DUV_v5 | wafer=LOT7873-W20 | temperature=379.0245°C
+2024-03-01T09:00:45 [PVD-04] INF: Wafer loaded | recipe=CVD_TiN_v2 | wafer=LOT8359-W22
+2024-03-01T08:36:48 [CMP-05] INF: Endpoint detected | recipe=ETH_SiO2_v3 | wafer=LOT3286-W06 | rf_power=457.0786W
+2024-03-01T08:43:52 [CMP-05] ERR: Alarm triggered: E005_VACUUM_LEAK | alarm_code=E005_VACUUM_LEAK | recipe=IMP_B_v2 | wafer=LOT4611-W21 | rf_power=319.7525W
+2024-03-01T08:41:36 [IMP-07] ERR: Alarm triggered: E004_RF_REFLECT_HIGH | alarm_code=E004_RF_REFLECT_HIGH | recipe=PVD_Al_v1 | wafer=LOT4811-W15 | vacuum_level=0.0Torr
+2024-03-01T08:22:03 [CMP-05] INF: Process step completed | recipe=IMP_B_v2 | wafer=LOT2679-W07
+2024-03-01T08:50:00 [LITHO-06] INF: Gas flow stabilized | recipe=IMP_B_v2 | wafer=LOT4611-W21 | flow_rate=95.4476sccm
+2024-03-01T08:20:24 [PVD-04] INF: System initialized | recipe=LITHO_DUV_v5 | wafer=LOT3286-W06 | vacuum_level=0.0Torr
+2024-03-01T09:26:40 [PVD-04] INF: System initialized | recipe=PVD_Al_v1 | wafer=LOT5557-W23 | vacuum_level=0.0Torr
+2024-03-01T09:23:02 [CVD-03] WRN: Alarm triggered: W104_RECIPE_DEVIATION | alarm_code=W104_RECIPE_DEVIATION | recipe=CMP_Cu_v4 | wafer=LOT5506-W03 | chuck_temp=22.4777°C
+2024-03-01T09:28:12 [IMP-07] INF: RF power applied | recipe=PVD_Al_v1 | wafer=LOT5557-W23 | temperature=360.9452°C
+2024-03-01T08:28:25 [ETCH-01] INF: Pump engaged | recipe=IMP_B_v2 | wafer=LOT8359-W22 | flow_rate=120.1069sccm
+2024-03-01T09:00:40 [ETCH-02] INF: Maintenance PM completed | recipe=PVD_Al_v1 | wafer=LOT9935-W08 | chuck_temp=23.4558°C
+2024-03-01T09:05:33 [CVD-03] INF: Endpoint detected | recipe=ETH_SiO2_v3 | wafer=LOT9279-W16 | temperature=362.083°C
+2024-03-01T09:39:34 [CVD-03] INF: Wafer unloaded | recipe=PVD_Al_v1 | wafer=LOT4811-W15 | flow_rate=97.6168sccm
+2024-03-01T08:49:10 [ETCH-02] INF: Process step completed | recipe=IMP_B_v2 | wafer=LOT5012-W04 | vacuum_level=0.0Torr
