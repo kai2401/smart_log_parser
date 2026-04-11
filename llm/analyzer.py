@@ -4,14 +4,14 @@ LLM Analysis Layer — uses OpenAI Chat API to explain and classify log events.
 
 import json
 import time
-import openai
+from openai import OpenAI
 import config
 import logging
 
 logger = logging.getLogger(__name__)
 
 # Configure OpenAI API key
-openai.api_key = config.OPENAI_API_KEY
+client = OpenAI(api_key=config.OPENAI_API_KEY)
 
 
 # ---------------------------------------------------------------------------
@@ -34,7 +34,7 @@ Return ONLY the JSON array. No markdown fences, no preamble.
 def _call_chat(system: str, user: str, max_tokens: int) -> str:
     """Call the OpenAI chat completion endpoint and return the assistant content as text."""
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model=config.OPENAI_MODEL,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
             max_tokens=max_tokens,
@@ -43,7 +43,7 @@ def _call_chat(system: str, user: str, max_tokens: int) -> str:
         # Robust extraction of returned text
         content = ""
         try:
-            content = response["choices"][0]["message"]["content"]
+            content = response.choices[0].message.content
         except Exception:
             try:
                 content = response.choices[0].message.content  # fallback for object-like responses

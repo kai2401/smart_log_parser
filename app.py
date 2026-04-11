@@ -334,7 +334,7 @@ with tab1:
             if pd.isna(val) or not val:
                 return ""
             return f"Template: {val}"
-        styled = df[display_cols].style.applymap(_style_severity, subset=["severity"])
+        styled = df[display_cols].style.map(_style_severity, subset=["severity"])
         if "drain3_template" in df.columns:
             styled = styled.format({"drain3_template": _drain3_tooltip})
         st.dataframe(styled, use_container_width=True, height=480)
