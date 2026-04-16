@@ -8,15 +8,6 @@ from parser.normalizer import normalise_record
 from parser.schema import LogEntry
 from parser.parsers import json_parser, csv_parser, xml_parser, syslog_parser, text_parser
 
-# Drain3 integration
-try:
-    from drain3 import TemplateMiner
-    drain3_enabled = True
-    template_miner = TemplateMiner()
-except ImportError:
-    drain3_enabled = False
-    template_miner = None
-
 FORMAT_PARSERS = {
     "json":   json_parser,
     "csv":    csv_parser,
@@ -49,12 +40,6 @@ def parse_log(content: str, filename: str) -> tuple[list[LogEntry], list[str]]:
     for i, raw in enumerate(raw_records):
         try:
             normalised = normalise_record(raw, source_format=fmt, filename=filename)
-            # Drain3 template mining
-            if drain3_enabled and template_miner is not None:
-                raw_msg = normalised.get("raw_message") or normalised.get("event_name") or str(raw)
-                result = template_miner.add_log_message(raw_msg)
-                if result and hasattr(result, 'template'):  # drain3 >=0.9.4
-                    normalised["drain3_template"] = result.template
             entry = LogEntry(**{k: v for k, v in normalised.items() if hasattr(LogEntry, k) or k in LogEntry.__dataclass_fields__})
             valid, missing = entry.is_valid()
             if not valid:

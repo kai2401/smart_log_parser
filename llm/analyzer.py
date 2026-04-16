@@ -72,7 +72,6 @@ def analyse_batch(entries: list[dict]) -> list[dict]:
             "severity":        e.get("severity"),
             "log_type":        e.get("log_type"),
             "event_name":      e.get("event_name"),
-            "alarm_code":      e.get("alarm_code"),
             "parameter_name":  e.get("parameter_name"),
             "parameter_value": e.get("parameter_value"),
             "unit":            e.get("unit"),
@@ -139,3 +138,38 @@ def summarise_session(stats: dict, sample_entries: list[dict]) -> str:
         return _call_chat(OVERVIEW_SYSTEM, json.dumps(payload), max_tokens=400)
     except Exception as e:
         return f"LLM summary unavailable: {e}"
+
+# ---------------------------------------------------------------------------
+# Conversational Chatbot
+# ---------------------------------------------------------------------------
+
+CHAT_SYSTEM = """You are a highly capable AI assistant for a semiconductor data parsing platform. 
+A user has uploaded a log file. You are provided with some statistics and a sample of the parsed log data as context. 
+Answer the user's questions about this log file, its contents, and its implications to the best of your ability.
+Be concise but insightful. Format your responses in markdown.
+"""
+
+def chat_with_logs(messages: list[dict], stats: dict, sample_entries: list[dict]) -> str:
+    """Chat with the LLM using the log data as context."""
+    context_msg = f"CONTEXT:\nStats: {json.dumps(stats)}\nSample Data (up to 20 rows): {json.dumps(sample_entries[:20])}\n\nUSER PROMPT:\n"
+    
+    # We prepend the context to the latest user message
+    llm_messages = [{"role": "system", "content": CHAT_SYSTEM}]
+    
+    for i, msg in enumerate(messages):
+        if i == len(messages) - 1 and msg["role"] == "user":
+            llm_messages.append({"role": "user", "content": context_msg + msg["content"]})
+        else:
+            llm_messages.append({"role": msg["role"], "content": msg["content"]})
+            
+    try:
+        response = client.chat.completions.create(
+            model=config.OPENAI_MODEL,
+            messages=llm_messages,
+            max_tokens=800,
+            timeout=config.LLM_TIMEOUT_SECONDS,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.exception("OpenAI chat failed")
+        return f"⚠️ Chat unavailable: {e}"

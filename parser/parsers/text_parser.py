@@ -14,18 +14,14 @@ SEVERITY_RE = re.compile(
 )
 
 TOOL_ID_RE = re.compile(
-    r"\[(?P<tool_id>[A-Z]{2,6}[-_]?\d{2,6})\]|"
-    r"(?:tool|machine|equip|host|device)[_\s]*[=:]\s*(?P<tool_id2>[A-Z0-9_\-]+)",
-    re.IGNORECASE,
-)
-
-ALARM_RE = re.compile(
-    r"(?:alarm|fault|error|code)[_\s]*[=:#]?\s*(?P<alarm_code>[A-Z0-9_\-]{3,16})",
-    re.IGNORECASE,
+    r"^(?P<tool_id>[A-Z]{2,6}[-_]?\d{2,6})\b|"
+    r"\[(?P<tool_id2>[A-Z]{2,6}[-_]?\d{2,6})\]|"
+    r"(?:tool|machine|equip|host|device)[_\s]*[=:]\s*(?P<tool_id3>[A-Z0-9_\-]+)",
+    re.IGNORECASE | re.MULTILINE,
 )
 
 PARAM_RE = re.compile(
-    r"(?P<param_name>[A-Za-z_][A-Za-z0-9_]*)\s*[=:]\s*(?P<param_value>-?\d+(?:\.\d+)?)\s*(?P<unit>[°%a-zA-Z/]+)?",
+    r"(?P<param_name>[A-Z][A-Za-z]*(?:Speed|Pressure|Temperature|Flow|Voltage|Current)?)\s*[=:]\s*(?P<param_value>-?\d+(?:\.\d+)?)\s*(?P<unit>(?:Torr|RPM|C|[°%a-zA-Z/]+))?",
 )
 
 WAFER_RE = re.compile(
@@ -60,15 +56,12 @@ def parse(content: str) -> Generator[dict, None, None]:
         if m:
             record["severity"] = m.group("severity").upper()
 
-        # Tool ID
+        # Tool ID (try start of line first, then bracketed, then key=value)
         m = TOOL_ID_RE.search(line)
         if m:
-            record["tool_id"] = (m.group("tool_id") or m.group("tool_id2") or "").strip()
-
-        # Alarm code
-        m = ALARM_RE.search(line)
-        if m:
-            record["alarm_code"] = m.group("alarm_code").strip()
+            tool_id_val = m.group("tool_id") or m.group("tool_id2") or m.group("tool_id3") or ""
+            if tool_id_val:
+                record["tool_id"] = tool_id_val.strip()
 
         # Wafer / lot
         m = WAFER_RE.search(line)
@@ -80,16 +73,16 @@ def parse(content: str) -> Generator[dict, None, None]:
         if m:
             record["recipe_id"] = m.group("recipe_id").strip()
 
-        # Parameter extraction (first numeric k=v pair)
+        # Parameter extraction: look for "Name: value Unit" patterns
         params = PARAM_RE.findall(line)
         if params:
-            # Skip single-char or timestamp-like matches
+            # Use the first valid match (skip timestamp-like matches)
             for pname, pval, punit in params:
-                if len(pname) > 2 and not re.match(r"^\d", pname):
-                    record["parameter_name"] = pname
-                    record["parameter_value"] = pval
-                    if punit:
-                        record["unit"] = punit.strip()
+                if len(pname) > 1 and not re.match(r"^\d{2}$", pname):  # Skip two-digit numbers
+                    record.setdefault("parameter_name", pname)
+                    record.setdefault("parameter_value", pval)
+                    if punit and punit.strip():
+                        record.setdefault("unit", punit.strip())
                     break
 
         # Event name: everything after timestamp + severity + tool_id (heuristic)

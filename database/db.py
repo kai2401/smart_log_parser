@@ -16,10 +16,10 @@ CREATE TABLE IF NOT EXISTS log_entries (
     log_type            TEXT,
     severity            TEXT,
     event_name          TEXT,
-    alarm_code          TEXT,
     recipe_id           TEXT,
     wafer_id            TEXT,
     process_stage       TEXT,
+    step_number         INTEGER,
     parameter_name      TEXT,
     parameter_value     REAL,
     unit                TEXT,
@@ -29,8 +29,7 @@ CREATE TABLE IF NOT EXISTS log_entries (
     source_filename     TEXT,
     ai_summary          TEXT,
     ai_classification   TEXT,
-    ai_root_cause_hint  TEXT,
-    drain3_template     TEXT
+    ai_root_cause_hint  TEXT
 );
 """
 
@@ -120,10 +119,10 @@ def query_entries(
         params.append(source_filename)
     if search:
         conditions.append(
-            "(raw_message LIKE ? OR event_name LIKE ? OR alarm_code LIKE ? OR normalized_message LIKE ?)"
+            "(raw_message LIKE ? OR event_name LIKE ? OR normalized_message LIKE ?)"
         )
         pattern = f"%{search}%"
-        params.extend([pattern, pattern, pattern, pattern])
+        params.extend([pattern, pattern, pattern])
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
     sql = f"SELECT * FROM log_entries {where} ORDER BY timestamp DESC, rowid DESC LIMIT ?"

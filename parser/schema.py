@@ -18,12 +18,12 @@ class LogEntry:
 
     # --- event ---
     event_name: Optional[str] = None
-    alarm_code: Optional[str] = None
 
     # --- process context ---
     recipe_id: Optional[str] = None
     wafer_id: Optional[str] = None
     process_stage: Optional[str] = None
+    step_number: Optional[int] = None
 
     # --- sensor / parameter ---
     parameter_name: Optional[str] = None
@@ -42,9 +42,6 @@ class LogEntry:
     ai_summary: Optional[str] = None
     ai_classification: Optional[str] = None  # normal | warning | anomaly | fault
     ai_root_cause_hint: Optional[str] = None
-
-    # --- drain3 template mining ---
-    drain3_template: Optional[str] = None
 
     def to_dict(self) -> dict:
         return asdict(self)

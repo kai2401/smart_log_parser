@@ -36,103 +36,133 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;600;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
-/* Base */
-html, body, [class*="css"] { font-family: 'Syne', sans-serif; }
-.stApp { background-color: #0d0f14; color: #c9d1d9; }
+/* Base Typography */
+html, body, [class*="css"], .stMarkdown { font-family: 'Inter', sans-serif !important; }
+.stApp { background-color: #0d1117; color: #c9d1d9; }
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 { font-family: 'Inter', sans-serif !important; font-weight: 600 !important; color: #e6edf3; letter-spacing: -0.01em; }
+h1 { font-weight: 700 !important; letter-spacing: -0.02em; }
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    background: #10131a;
-    border-right: 1px solid #1e2433;
+    background-color: #161b22;
+    border-right: 1px solid #30363d;
 }
 
 /* Metric cards */
 [data-testid="metric-container"] {
-    background: #141820;
-    border: 1px solid #1e2433;
-    border-radius: 8px;
-    padding: 16px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-[data-testid="metric-container"] label { color: #8b949e !important; font-size: 0.75rem !important; letter-spacing: 0.08em; text-transform: uppercase; }
-[data-testid="stMetricValue"] { color: #58a6ff !important; font-family: 'JetBrains Mono', monospace !important; font-size: 2rem !important; }
+[data-testid="metric-container"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+}
+[data-testid="metric-container"] label { color: #8b949e !important; font-size: 0.8rem !important; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+[data-testid="stMetricValue"] { color: #58a6ff !important; font-family: 'JetBrains Mono', monospace !important; font-size: 2.2rem !important; font-weight: 600; }
 
 /* Dataframe */
-[data-testid="stDataFrame"] { border: 1px solid #1e2433; border-radius: 6px; }
+[data-testid="stDataFrame"] { border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
+[data-testid="stDataFrame"] > div { border-radius: 8px; }
 
 /* Buttons */
 .stButton > button {
-    background: #1e2d47;
-    color: #58a6ff;
-    border: 1px solid #1e4070;
+    background: #21262d;
+    color: #c9d1d9;
+    border: 1px solid #30363d;
     border-radius: 6px;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
-    transition: all 0.2s;
+    font-weight: 500;
+    transition: all 0.2s ease;
 }
-.stButton > button:hover { background: #233a5e; border-color: #58a6ff; }
+.stButton > button:hover { background: #30363d; border-color: #8b949e; color: #ffffff; }
 
-/* Primary button */
+/* Primary button (Quick Actions / Highlights) */
 .stButton > button[kind="primary"] {
-    background: linear-gradient(135deg, #1e4070, #0d2a4a);
-    color: #79c0ff;
-    border-color: #388bfd;
+    background: #238636;
+    color: #ffffff;
+    border: 1px solid rgba(240, 246, 252, 0.1);
+}
+.stButton > button[kind="primary"]:hover {
+    background: #2ea043;
+    border-color: rgba(240, 246, 252, 0.1);
 }
 
 /* Tab styling */
-[data-baseweb="tab-list"] { gap: 4px; border-bottom: 1px solid #1e2433 !important; }
+[data-baseweb="tab-list"] { gap: 8px; border-bottom: 1px solid #30363d !important; }
 [data-baseweb="tab"] {
     background: transparent;
     color: #8b949e;
     border-radius: 6px 6px 0 0;
-    font-size: 0.85rem;
-    letter-spacing: 0.04em;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding-top: 12px;
+    padding-bottom: 12px;
 }
-[aria-selected="true"][data-baseweb="tab"] { background: #141820 !important; color: #58a6ff !important; border-bottom: 2px solid #58a6ff !important; }
+[aria-selected="true"][data-baseweb="tab"] { background: #161b22 !important; color: #e6edf3 !important; border-bottom: 2px solid #58a6ff !important; }
 
 /* File uploader */
 [data-testid="stFileUploader"] {
-    border: 1px dashed #1e4070;
+    border: 1px dashed #30363d;
     border-radius: 8px;
-    padding: 12px;
+    padding: 16px;
     background: #0d1117;
 }
 
 /* Code/mono text */
-code { font-family: 'JetBrains Mono', monospace; background: #161b22; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; color: #79c0ff; }
-
-/* Headers */
-h1, h2, h3 { font-family: 'Syne', sans-serif !important; }
-h1 { font-weight: 800; letter-spacing: -0.02em; }
+code { font-family: 'JetBrains Mono', monospace !important; background: #161b22; padding: 3px 6px; border-radius: 4px; font-size: 0.85rem; color: #79c0ff; border: 1px solid #30363d; }
 
 /* Alert boxes */
-.stAlert { border-radius: 6px; }
-
-/* Severity badges */
-.badge-critical { color: #ff7b72; font-weight: 700; }
-.badge-error    { color: #f78166; }
-.badge-warning  { color: #cda869; }
-.badge-info     { color: #58a6ff; }
-.badge-debug    { color: #8b949e; }
-
-/* AI panel */
-.ai-panel {
-    background: linear-gradient(135deg, #0d1829, #0d1a14);
-    border: 1px solid #1e4070;
-    border-radius: 10px;
-    padding: 20px;
-    margin-top: 12px;
-}
+.stAlert { border-radius: 8px; border: 1px solid #30363d; }
 
 /* Divider */
-hr { border-color: #1e2433; }
+hr { border-color: #30363d; margin: 1.5rem 0; }
 
-/* Selectbox + input */
-.stSelectbox > div > div, .stTextInput > div > input {
-    background: #141820 !important;
-    border-color: #1e2433 !important;
+/* Inputs */
+.stSelectbox > div > div, .stTextInput > div > input, [data-testid="stChatInput"] {
+    background: #161b22 !important;
+    border: 1px solid #30363d !important;
     color: #c9d1d9 !important;
+    border-radius: 6px !important;
+}
+.stSelectbox > div > div:focus-within, .stTextInput > div > input:focus, [data-testid="stChatInput"]:focus-within {
+    border-color: #58a6ff !important;
+    box-shadow: 0 0 0 1px #58a6ff !important;
+}
+
+/* Chat message bubbles */
+[data-testid="stChatMessage"] { background-color: transparent; }
+
+/* Typing indicator */
+.typing-indicator {
+  display: inline-flex;
+  align-items: center;
+  padding: 12px 8px;
+  background: #161b22;
+  border-radius: 8px;
+  border: 1px solid #30363d;
+  width: fit-content;
+}
+.typing-indicator span {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background-color: #8b949e;
+  border-radius: 50%;
+  margin: 0 4px;
+  animation: typing 1.4s infinite ease-in-out both;
+}
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes typing {
+  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
 }
 </style>
 """, unsafe_allow_html=True)
@@ -151,8 +181,8 @@ if "parsed_filenames" not in st.session_state:
     st.session_state.parsed_filenames = []
 if "last_filename" not in st.session_state:
     st.session_state.last_filename = None
-if "ai_session_summary" not in st.session_state:
-    st.session_state.ai_session_summary = ""
+if "chat_messages" not in st.session_state:
+    st.session_state.chat_messages = []
 
 
 # ---------------------------------------------------------------------------
@@ -204,7 +234,7 @@ with st.sidebar:
         db.clear_all()
         st.session_state.parsed_filenames = []
         st.session_state.last_filename = None
-        st.session_state.ai_session_summary = ""
+        st.session_state.chat_messages = []
         st.rerun()
 
     st.divider()
@@ -214,23 +244,26 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 
 if uploaded_file:
-    content = uploaded_file.read().decode("utf-8", errors="replace")
-    filename = uploaded_file.name
-    with st.spinner(f"Parsing `{filename}`..."):
-        db.delete_by_filename(filename)
-        entries, warnings = parse_log(content, filename)
-        n = db.insert_entries(entries)
-        if filename not in st.session_state.parsed_filenames:
-            st.session_state.parsed_filenames.append(filename)
-        st.session_state.last_filename = filename
-        st.session_state.ai_session_summary = ""  # Reset for new file
+    # Only process if this specific file upload hasn't been parsed yet
+    if getattr(st.session_state, "last_uploaded_file_id", None) != uploaded_file.file_id:
+        content = uploaded_file.read().decode("utf-8", errors="replace")
+        filename = uploaded_file.name
+        with st.spinner(f"Parsing `{filename}`..."):
+            db.delete_by_filename(filename)
+            entries, warnings = parse_log(content, filename)
+            n = db.insert_entries(entries)
+            if filename not in st.session_state.parsed_filenames:
+                st.session_state.parsed_filenames.append(filename)
+            st.session_state.last_filename = filename
+            st.session_state.chat_messages = []  # Reset for new file
+            st.session_state.last_uploaded_file_id = uploaded_file.file_id
 
-    if n > 0:
-        st.success(f"✅ Parsed and stored **{n}** log entries from `{filename}`")
-    if warnings:
-        with st.expander(f"⚠️ {len(warnings)} parsing warnings"):
-            for w in warnings:
-                st.warning(w)
+        if n > 0:
+            st.success(f"✅ Parsed and stored **{n}** log entries from `{filename}`")
+        if warnings:
+            with st.expander(f"⚠️ {len(warnings)} parsing warnings"):
+                for w in warnings:
+                    st.warning(w)
 
 # ---------------------------------------------------------------------------
 # Main content
@@ -250,6 +283,7 @@ with col_h2:
             selected_file = st.selectbox("Switch file", all_files, index=all_files.index(active_file))
             if selected_file != active_file:
                 st.session_state.last_filename = selected_file
+                st.session_state.chat_messages = [] # clear chat on file switch
                 active_file = selected_file
 
 # ---------------------------------------------------------------------------
@@ -316,9 +350,8 @@ with tab1:
     else:
         display_cols = [
             "timestamp", "tool_id", "severity", "log_type",
-            "event_name", "alarm_code", "parameter_name", "parameter_value",
-            "unit", "wafer_id", "recipe_id", "source_format", "normalized_message",
-            "drain3_template",
+            "event_name", "parameter_name", "parameter_value",
+            "unit", "wafer_id", "recipe_id", "step_number", "source_format", "normalized_message",
         ]
         display_cols = [c for c in display_cols if c in df.columns]
 
@@ -329,14 +362,7 @@ with tab1:
             }
             return f"color: {colors.get(str(val).upper(), '#c9d1d9')}"
 
-        # Show drain3 template as tooltip if present
-        def _drain3_tooltip(val):
-            if pd.isna(val) or not val:
-                return ""
-            return f"Template: {val}"
         styled = df[display_cols].style.map(_style_severity, subset=["severity"])
-        if "drain3_template" in df.columns:
-            styled = styled.format({"drain3_template": _drain3_tooltip})
         st.dataframe(styled, use_container_width=True, height=480)
 
         # Download
@@ -444,7 +470,7 @@ with tab2:
                 fig_sensor = px.scatter(
                     p_df, x="timestamp", y="parameter_value", color="tool_id",
                     title=f"{chosen_param} readings over time",
-                    hover_data=["severity", "alarm_code", "wafer_id"],
+                    hover_data=["severity", "wafer_id"],
                 )
                 fig_sensor.update_layout(
                     paper_bgcolor="#0d0f14", plot_bgcolor="#141820",
@@ -457,87 +483,61 @@ with tab3:
     if not config.OPENAI_API_KEY:
         st.warning("⚠️ OpenAI API key must be set in the .env file in the project root to enable AI features.")
     elif df.empty:
-        st.info("Upload logs first.")
+        st.info("Upload logs first to chat with your data.")
     else:
-        # Session summary
-        st.markdown("### 📝 Session Overview")
-        if st.button("Generate AI Overview", type="primary"):
-            with st.spinner("Analysing log session..."):
-                sample = df.head(20).to_dict(orient="records")
-                summary = analyzer.summarise_session(stats, sample)
-                st.session_state.ai_session_summary = summary
-        if st.session_state.ai_session_summary:
-            st.markdown(
-                f'<div class="ai-panel">{st.session_state.ai_session_summary}</div>',
-                unsafe_allow_html=True,
-            )
+        st.markdown("### 🤖 Chat with Your Log Data")
+        st.caption("Ask questions about the active log file, its anomalies, tool performance, and errors.")
 
-        st.divider()
+        # Display chat messages from history on app rerun
+        for message in st.session_state.chat_messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
 
-        # Batch classify
-        st.markdown("### ⚡ Batch Classify Log Entries")
-        n_batch = st.slider("Number of entries to classify", 5, 50, 10)
-        if st.button("Run Batch AI Classification", type="primary"):
-            sample_rows = df.head(n_batch).to_dict(orient="records")
-            with st.spinner(f"Classifying {n_batch} entries with Claude..."):
-                results = analyzer.analyse_batch(sample_rows)
-                if results:
-                    for r in results:
-                        db.update_ai_fields(
-                            r["id"],
-                            r.get("summary", ""),
-                            r.get("classification", ""),
-                            r.get("root_cause_hint", ""),
-                        )
-                    st.success(f"✓ Classified {len(results)} entries")
+        # Accept user input
+        chat_prompt = st.chat_input(f"Ask about {active_file}...")
+
+        # If it's a new conversation, offer context-aware quick actions
+        if not st.session_state.chat_messages:
+            st.markdown("**💡 Predicted Quests (Automated Insights):**")
+            suggestions = ["Summarise the overall health of these logs."]
+            if stats.get('errors', 0) > 0:
+                suggestions.append(f"What might be causing the {stats['errors']} errors?")
+            elif stats.get('warnings', 0) > 0:
+                suggestions.append(f"Highlight the {stats['warnings']} warnings present.")
+                
+            if stats.get('alarms', 0) > 0:
+                suggestions.append("Detail the alarms and their potential root causes.")
+            if stats.get('tools', 0) > 1:
+                suggestions.append("Compare the performance across different tools.")
+            
+            cols = st.columns(min(len(suggestions), 4))
+            for i, sug in enumerate(suggestions[:4]):
+                if cols[i].button(sug, key=f"sug_{i}", use_container_width=True):
+                    st.session_state.chat_messages.append({"role": "user", "content": sug})
                     st.rerun()
-                else:
-                    st.error("LLM returned no results. Check your .env OpenAI API key.")
 
-        # Show AI-enriched results
-        ai_rows = [r for r in rows if r.get("ai_summary")]
-        if ai_rows:
-            st.markdown("### 🧠 AI-Enriched Entries")
-            for row in ai_rows[:20]:
-                cls = row.get("ai_classification", "normal")
-                cls_emoji = {"fault": "🔴", "anomaly": "🟠", "warning": "🟡", "normal": "🟢"}.get(cls, "⚪")
-                with st.expander(
-                    f"{cls_emoji} [{row.get('tool_id','?')}] {row.get('event_name','') or row.get('normalized_message','')[:80]}"
-                ):
-                    col_a, col_b = st.columns([1, 2])
-                    with col_a:
-                        st.caption("**Classification**")
-                        st.markdown(f"`{cls.upper()}`")
-                        st.caption("**Severity**")
-                        st.markdown(f"`{row.get('severity','')}`")
-                        st.caption("**Tool**")
-                        st.markdown(f"`{row.get('tool_id','')}`")
-                        if row.get("alarm_code"):
-                            st.caption("**Alarm Code**")
-                            st.markdown(f"`{row['alarm_code']}`")
-                    with col_b:
-                        st.caption("**AI Summary**")
-                        st.markdown(row.get("ai_summary", ""))
-                        if row.get("ai_root_cause_hint"):
-                            st.caption("**Root Cause Hint**")
-                            st.info(row["ai_root_cause_hint"])
+        if chat_prompt:
+            st.session_state.chat_messages.append({"role": "user", "content": chat_prompt})
+            st.rerun()
 
-        st.divider()
-
-        # Deep-dive single entry
-        st.markdown("### 🔬 Deep-Dive Analysis")
-        st.caption("Select a specific log entry for detailed AI explanation.")
-        if not df.empty:
-            row_labels = [
-                f"[{r.get('tool_id','?')}] {str(r.get('timestamp',''))[:19]} — {r.get('event_name','') or r.get('normalized_message','')[:60]}"
-                for r in rows[:50]
-            ]
-            selected_idx = st.selectbox("Choose entry", range(len(row_labels)), format_func=lambda i: row_labels[i])
-            if st.button("Analyse Selected Entry", type="primary"):
-                entry_data = rows[selected_idx]
-                with st.spinner("Generating detailed analysis..."):
-                    explanation = analyzer.explain_entry(entry_data)
-                st.markdown(f'<div class="ai-panel">{explanation}</div>', unsafe_allow_html=True)
+        # If the last message is from the user, generate the assistant's response
+        if st.session_state.chat_messages and st.session_state.chat_messages[-1]["role"] == "user":
+            with st.chat_message("assistant"):
+                message_placeholder = st.empty()
+                message_placeholder.markdown(
+                    '<div class="typing-indicator"><span></span><span></span><span></span></div>', 
+                    unsafe_allow_html=True
+                )
+                
+                # Give LLM a sample of the data (up to 30 rows) to keep token size in check
+                sample_rows = df.head(30).to_dict(orient="records")
+                response = analyzer.chat_with_logs(st.session_state.chat_messages, stats, sample_rows)
+                
+                message_placeholder.markdown(response)
+                    
+            # Add assistant response to chat history
+            st.session_state.chat_messages.append({"role": "assistant", "content": response})
+            st.rerun()
 
 # ─────────────────────── TAB 4: Schema Reference ───────────────────────────
 with tab4:
@@ -551,10 +551,10 @@ with tab4:
         ("log_type",            "TEXT",  "Auto",       "process_step | alarm | sensor_reading | maintenance | info"),
         ("severity",            "TEXT",  "✅ Req",     "DEBUG | INFO | WARNING | ERROR | CRITICAL"),
         ("event_name",          "TEXT",  "Optional",   "Human-readable event description"),
-        ("alarm_code",          "TEXT",  "Optional",   "Vendor alarm/fault code"),
         ("recipe_id",           "TEXT",  "Optional",   "Process recipe identifier"),
         ("wafer_id",            "TEXT",  "Optional",   "Wafer / lot identifier"),
         ("process_stage",       "TEXT",  "Optional",   "LOAD | PROCESS | VENT | UNLOAD etc."),
+        ("step_number",         "INTEGER", "Optional", "Process step or stage number"),
         ("parameter_name",      "TEXT",  "Optional",   "Normalised sensor/parameter name"),
         ("parameter_value",     "REAL",  "Optional",   "Numeric sensor reading"),
         ("unit",                "TEXT",  "Optional",   "Unit of measurement"),
