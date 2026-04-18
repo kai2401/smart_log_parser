@@ -1,6 +1,7 @@
 """
 Synthetic semiconductor tool log generator.
 Produces realistic logs in JSON, CSV, XML, Syslog, and plain text formats.
+Row count is randomly chosen between 1 000 and 5 000 per run.
 """
 
 import json
@@ -10,7 +11,10 @@ import os
 import xml.etree.ElementTree as ET
 from xml.dom import minidom
 
-random.seed(42)
+# ── Random seed: different every run ────────────────────────────────────────
+SEED = random.randint(0, 10_000)
+random.seed(SEED)
+print(f"  seed={SEED}")
 
 TOOLS = ["ETCH-01", "ETCH-02", "CVD-03", "PVD-04", "CMP-05", "LITHO-06", "IMP-07", "ANNEAL-08"]
 RECIPES = ["ETH_SiO2_v3", "CVD_TiN_v2", "PVD_Al_v1", "CMP_Cu_v4", "LITHO_DUV_v5", "IMP_B_v2"]
@@ -25,13 +29,74 @@ ALARM_CODES = {
     "CRITICAL": ["C201_SAFETY_INTLK", "C202_DOOR_OPEN", "C203_FIRE_SUPPRESSION"],
 }
 
-PARAMS = {
-    "temperature":   (350, 450, "°C",  0.5),
-    "pressure":      (5,   15,  "mTorr", 0.2),
-    "flow_rate":     (80,  120, "sccm", 1.0),
-    "rf_power":      (300, 500, "W",   2.0),
-    "chuck_temp":    (20,  25,  "°C",  0.1),
-    "vacuum_level":  (1e-6, 5e-6, "Torr", 1e-7),
+# Per-tool parameter ranges reflecting real semiconductor process physics.
+# Format: param -> (lo, hi, unit, noise_stddev)
+# None tuple means this parameter is not applicable for this tool (never generated).
+TOOL_PARAMS: dict[str, dict] = {
+    "ETCH-01": {
+        "temperature":  (180, 250,    "°C",     0.8),
+        "pressure":     (5,   20,     "mTorr",  0.3),
+        "flow_rate":    (50,  150,    "sccm",   1.5),
+        "rf_power":     (200, 600,    "W",      3.0),
+        "chuck_temp":   (15,  25,     "°C",     0.1),
+        "vacuum_level": (1e-4, 5e-4,  "Torr",   5e-6),
+    },
+    "ETCH-02": {
+        "temperature":  (200, 280,    "°C",     0.8),
+        "pressure":     (3,   15,     "mTorr",  0.3),
+        "flow_rate":    (60,  160,    "sccm",   1.5),
+        "rf_power":     (250, 650,    "W",      3.0),
+        "chuck_temp":   (10,  20,     "°C",     0.1),
+        "vacuum_level": (5e-5, 3e-4,  "Torr",   4e-6),
+    },
+    "CVD-03": {
+        "temperature":  (550, 750,    "°C",     1.5),
+        "pressure":     (100, 600,    "mTorr",  5.0),
+        "flow_rate":    (200, 500,    "sccm",   4.0),
+        "rf_power":     (0,   50,     "W",      0.5),
+        "chuck_temp":   (550, 750,    "°C",     1.5),
+        "vacuum_level": (1e-3, 5e-3,  "Torr",   1e-4),
+    },
+    "PVD-04": {
+        "temperature":  (50,  200,    "°C",     0.5),
+        "pressure":     (1,   5,      "mTorr",  0.1),
+        "flow_rate":    (10,  40,     "sccm",   0.5),
+        "rf_power":     (100, 400,    "W",      2.0),
+        "chuck_temp":   (20,  60,     "°C",     0.3),
+        "vacuum_level": (1e-7, 9e-7,  "Torr",   5e-9),
+    },
+    "CMP-05": {
+        "temperature":  (20,  45,     "°C",     0.3),
+        "pressure":     None,                          # N/A — mechanical process
+        "flow_rate":    (100, 300,    "mL/min", 3.0),
+        "rf_power":     None,                          # N/A
+        "chuck_temp":   (18,  30,     "°C",     0.2),
+        "vacuum_level": None,                          # N/A
+    },
+    "LITHO-06": {
+        "temperature":  (20,  23,     "°C",     0.05),
+        "pressure":     (700, 760,    "mTorr",  1.0),
+        "flow_rate":    (10,  30,     "sccm",   0.2),
+        "rf_power":     None,                          # N/A
+        "chuck_temp":   (20,  23,     "°C",     0.05),
+        "vacuum_level": (1e-2, 5e-2,  "Torr",   5e-4),
+    },
+    "IMP-07": {
+        "temperature":  (100, 200,    "°C",     0.8),
+        "pressure":     (1e-3, 5e-3,  "mTorr",  5e-5),
+        "flow_rate":    (5,   30,     "sccm",   0.4),
+        "rf_power":     (400, 900,    "W",      4.0),
+        "chuck_temp":   (10,  25,     "°C",     0.2),
+        "vacuum_level": (1e-7, 5e-7,  "Torr",   2e-9),
+    },
+    "ANNEAL-08": {
+        "temperature":  (800, 1100,   "°C",     2.0),
+        "pressure":     (700, 760,    "mTorr",  1.0),
+        "flow_rate":    (500, 2000,   "sccm",   10.0),
+        "rf_power":     None,                          # N/A — thermal only
+        "chuck_temp":   (800, 1100,   "°C",     2.0),
+        "vacuum_level": None,                          # N/A — atmospheric
+    },
 }
 
 EVENTS = [
@@ -53,11 +118,11 @@ def _random_entry(base: datetime.datetime, offset: int) -> dict:
     severity = random.choices([s for s, _ in sev_weights], [w for _, w in sev_weights])[0]
 
     entry = {
-        "timestamp":    t.isoformat(),
-        "tool_id":      tool,
-        "severity":     severity,
-        "recipe_id":    random.choice(RECIPES),
-        "wafer_id":     random.choice(WAFERS),
+        "timestamp":     t.isoformat(),
+        "tool_id":       tool,
+        "severity":      severity,
+        "recipe_id":     random.choice(RECIPES),
+        "wafer_id":      random.choice(WAFERS),
         "process_stage": random.choice(STAGES),
     }
 
@@ -67,24 +132,29 @@ def _random_entry(base: datetime.datetime, offset: int) -> dict:
     else:
         entry["event_name"] = random.choice(EVENTS)
 
-    # Add sensor reading ~60% of the time
+    # Add sensor reading ~60 % of the time
     if random.random() > 0.4:
-        pname, (lo, hi, unit, noise) = random.choice(list(PARAMS.items()))
-        val = round(random.uniform(lo, hi) + random.gauss(0, noise), 4)
-        entry["parameter_name"]  = pname
-        entry["parameter_value"] = val
-        entry["unit"]             = unit
+        tool_p = TOOL_PARAMS.get(tool, {})
+        # Filter out N/A params (value is None) for this tool
+        valid_params = [(k, v) for k, v in tool_p.items() if v is not None]
+        if valid_params:
+            pname, (lo, hi, unit, noise) = random.choice(valid_params)
+            val = round(random.uniform(lo, hi) + random.gauss(0, noise), 4)
+            entry["parameter_name"]  = pname
+            entry["parameter_value"] = val
+            entry["unit"]            = unit
 
     return entry
 
 
-def generate_all(n: int = 50) -> list[dict]:
+def generate_all(n: int) -> list[dict]:
+    """Generate *n* log entries starting from a fixed base timestamp."""
     base = datetime.datetime(2024, 3, 1, 8, 0, 0)
     return [_random_entry(base, i * random.randint(10, 120)) for i in range(n)]
 
 
 # ---------------------------------------------------------------------------
-# Format writers
+# Format writers (unchanged)
 # ---------------------------------------------------------------------------
 
 def write_json(entries: list[dict], path: str):
@@ -119,8 +189,8 @@ def write_syslog(entries: list[dict], path: str):
     SYSLOG_SEV = {"DEBUG": 7, "INFO": 6, "WARNING": 4, "ERROR": 3, "CRITICAL": 2}
     lines = []
     for e in entries:
-        pri = 16 * 8 + SYSLOG_SEV.get(e.get("severity", "INFO"), 6)
-        ts = e.get("timestamp", "")[:19].replace("T", " ")
+        pri  = 16 * 8 + SYSLOG_SEV.get(e.get("severity", "INFO"), 6)
+        ts   = e.get("timestamp", "")[:19].replace("T", " ")
         host = e.get("tool_id", "UNKNOWN").replace(" ", "_")
         proc = "tool_controller"
         msg_parts = [e.get("event_name", "")]
@@ -138,23 +208,25 @@ def write_syslog(entries: list[dict], path: str):
 
 def write_text(entries: list[dict], path: str):
     SEV_TAG = {"DEBUG": "DBG", "INFO": "INF", "WARNING": "WRN", "ERROR": "ERR", "CRITICAL": "CRT"}
-    lines = ["# Semiconductor Tool Event Log — Maintenance & Process Record",
-             "# Generated for demo purposes\n"]
+    lines = [
+        "# Semiconductor Tool Event Log — Maintenance & Process Record",
+        "# Generated for demo purposes\n",
+    ]
     for e in entries:
         ts   = str(e.get("timestamp", ""))[:19]
         tool = e.get("tool_id", "UNKNOWN")
         sev  = SEV_TAG.get(e.get("severity", "INFO"), "INF")
         evt  = e.get("event_name", "")
-        parts = [f"{ts} [{tool}] {sev}: {evt}"]
+        line = f"{ts} [{tool}] {sev}: {evt}"
         if e.get("alarm_code"):
-            parts[0] += f" | alarm_code={e['alarm_code']}"
+            line += f" | alarm_code={e['alarm_code']}"
         if e.get("recipe_id"):
-            parts[0] += f" | recipe={e['recipe_id']}"
+            line += f" | recipe={e['recipe_id']}"
         if e.get("wafer_id"):
-            parts[0] += f" | wafer={e['wafer_id']}"
+            line += f" | wafer={e['wafer_id']}"
         if e.get("parameter_name"):
-            parts[0] += f" | {e['parameter_name']}={e['parameter_value']}{e.get('unit','')}"
-        lines.append(parts[0])
+            line += f" | {e['parameter_name']}={e['parameter_value']}{e.get('unit','')}"
+        lines.append(line)
     with open(path, "w") as f:
         f.write("\n".join(lines))
 
@@ -163,7 +235,11 @@ def write_text(entries: list[dict], path: str):
 # Entry point
 # ---------------------------------------------------------------------------
 
-def generate_sample_files(output_dir: str = "synthetic/samples", n_each: int = 60):
+def generate_sample_files(output_dir: str = "synthetic/samples"):
+    # ── Row count: random between 1 000 and 5 000 ───────────────────────────
+    n_rows = random.randint(1_000, 5_000)
+    print(f"  rows={n_rows}")
+
     os.makedirs(output_dir, exist_ok=True)
 
     files = {}
@@ -174,11 +250,11 @@ def generate_sample_files(output_dir: str = "synthetic/samples", n_each: int = 6
         ("syslog", write_syslog, "log"),
         ("text",   write_text,   "txt"),
     ]:
-        entries = generate_all(n_each)
+        entries = generate_all(n_rows)
         path = os.path.join(output_dir, f"tool_log_{fmt}.{ext}")
         writer(entries, path)
         files[fmt] = path
-        print(f"  ✓  {path}  ({n_each} entries)")
+        print(f"  ✓  {path}  ({n_rows} entries)")
 
     return files
 
