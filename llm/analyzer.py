@@ -4,6 +4,8 @@ LLM Analysis Layer — uses OpenAI Chat API to explain and classify log events.
 
 import json
 import time
+import re
+from pydantic import BaseModel
 from openai import OpenAI
 import config
 import logging
@@ -140,36 +142,59 @@ def summarise_session(stats: dict, sample_entries: list[dict]) -> str:
         return f"LLM summary unavailable: {e}"
 
 # ---------------------------------------------------------------------------
-# Conversational Chatbot
+# Conversational Chatbot (Guardrail Enforced)
 # ---------------------------------------------------------------------------
 
-CHAT_SYSTEM = """You are a highly capable AI assistant for a semiconductor data parsing platform. 
-A user has uploaded a log file. You are provided with some statistics and a sample of the parsed log data as context. 
-Answer the user's questions about this log file, its contents, and its implications to the best of your ability.
-Be concise but insightful. Format your responses in markdown.
+class GuardedChatResponse(BaseModel):
+    is_domain_relevant: bool
+    rejection_reason: str | None
+    assistant_reply: str
+
+GUARDED_CHAT_SYSTEM = """You are a highly capable AI assistant for a semiconductor data parsing platform.
+A user has uploaded a log file. You are provided with statistics and a sample of the parsed log data as context.
+
+GUARDRAIL DIRECTIVES:
+1. Domain Restriction: You must ONLY answer questions related to semiconductor manufacturing, equipment logs, systems analysis, or data parsing.
+2. If the query falls outside this domain, set 'is_domain_relevant' to false, state the 'rejection_reason', and leave 'assistant_reply' empty.
+3. If the query is relevant, set 'is_domain_relevant' to true, leave 'rejection_reason' null, and provide your analysis in 'assistant_reply'. Format the reply using markdown.
 """
 
+def _sanitize_input(text: str, max_length: int = 1500) -> str:
+    """Strip control characters and truncate to mitigate buffer/context overflow injections."""
+    sanitized = re.sub(r'[\x00-\x1F\x7F]', '', text)
+    return sanitized[:max_length]
+
 def chat_with_logs(messages: list[dict], stats: dict, sample_entries: list[dict]) -> str:
-    """Chat with the LLM using the log data as context."""
-    context_msg = f"CONTEXT:\nStats: {json.dumps(stats)}\nSample Data (up to 20 rows): {json.dumps(sample_entries[:20])}\n\nUSER PROMPT:\n"
+    """Chat with the LLM using domain-enforced guardrails and sanitized context."""
+    context_msg = f"CONTEXT:\nStats: {json.dumps(stats)}\nSample Data: {json.dumps(sample_entries[:20])}"
     
-    # We prepend the context to the latest user message
-    llm_messages = [{"role": "system", "content": CHAT_SYSTEM}]
+    llm_messages = [
+        {"role": "system", "content": GUARDED_CHAT_SYSTEM},
+        {"role": "system", "content": context_msg}
+    ]
     
-    for i, msg in enumerate(messages):
-        if i == len(messages) - 1 and msg["role"] == "user":
-            llm_messages.append({"role": "user", "content": context_msg + msg["content"]})
-        else:
-            llm_messages.append({"role": msg["role"], "content": msg["content"]})
+    # Apply sanitization to the incoming user messages
+    for msg in messages:
+        if msg["role"] == "user":
+            msg["content"] = _sanitize_input(msg["content"])
+        llm_messages.append(msg)
             
     try:
-        response = client.chat.completions.create(
+        response = client.beta.chat.completions.parse(
             model=config.OPENAI_MODEL,
             messages=llm_messages,
-            max_tokens=800,
+            response_format=GuardedChatResponse,
             timeout=config.LLM_TIMEOUT_SECONDS,
         )
-        return response.choices[0].message.content.strip()
+        
+        parsed_output = response.choices[0].message.parsed
+        
+        if not parsed_output.is_domain_relevant:
+            logger.warning(f"Guardrail triggered: {parsed_output.rejection_reason}")
+            return f"⚠️ Query rejected: {parsed_output.rejection_reason}"
+            
+        return parsed_output.assistant_reply
+
     except Exception as e:
-        logger.exception("OpenAI chat failed")
-        return f"⚠️ Chat unavailable: {e}"
+        logger.exception("OpenAI chat failed or guardrail error")
+        return f"⚠️ System unavailable: {e}"
