@@ -2,11 +2,6 @@
 Smart Tool Log Parser — Streamlit Dashboard
 """
 
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(__file__))
-
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -18,6 +13,11 @@ from database import db
 from llm import analyzer
 from synthetic.generator import generate_sample_files
 import streamlit.components.v1
+
+import sys
+import os
+
+sys.path.insert(0, os.path.dirname(__file__))
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -37,14 +37,16 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+@import url\
+    ('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
 
 /* Base Typography */
 html, body, [class*="css"], .stMarkdown { font-family: 'Inter', sans-serif !important; }
 .stApp { background-color: #0d1117; color: #c9d1d9; }
 
 /* Headers */
-h1, h2, h3, h4, h5, h6 { font-family: 'Inter', sans-serif !important; font-weight: 600 !important; color: #e6edf3; letter-spacing: -0.01em; }
+h1, h2, h3, h4, h5, h6 { font-family: 'Inter', sans-serif !important; font-weight: 600 !important; \
+    color: #e6edf3; letter-spacing: -0.01em; }
 h1 { font-weight: 700 !important; letter-spacing: -0.02em; }
 
 /* Sidebar */
@@ -66,8 +68,10 @@ section[data-testid="stSidebar"] {
     transform: translateY(-2px);
     box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
 }
-[data-testid="metric-container"] label { color: #8b949e !important; font-size: 0.8rem !important; font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-[data-testid="stMetricValue"] { color: #58a6ff !important; font-family: 'JetBrains Mono', monospace !important; font-size: 2.2rem !important; font-weight: 600; }
+[data-testid="metric-container"] label { color: #8b949e !important; font-size: 0.8rem !important; \
+font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+[data-testid="stMetricValue"] { color: #58a6ff !important; font-family: 'JetBrains Mono', \
+monospace !important; font-size: 2.2rem !important; font-weight: 600; }
 
 /* Dataframe */
 [data-testid="stDataFrame"] { border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
@@ -106,7 +110,8 @@ section[data-testid="stSidebar"] {
     padding-top: 12px;
     padding-bottom: 12px;
 }
-[aria-selected="true"][data-baseweb="tab"] { background: #161b22 !important; color: #e6edf3 !important; border-bottom: 2px solid #58a6ff !important; }
+[aria-selected="true"][data-baseweb="tab"] { background: #161b22 !important; \
+color: #e6edf3 !important; border-bottom: 2px solid #58a6ff !important; }
 
 /* File uploader */
 [data-testid="stFileUploader"] {
@@ -117,7 +122,9 @@ section[data-testid="stSidebar"] {
 }
 
 /* Code/mono text */
-code { font-family: 'JetBrains Mono', monospace !important; background: #161b22; padding: 3px 6px; border-radius: 4px; font-size: 0.85rem; color: #79c0ff; border: 1px solid #30363d; }
+code { font-family: 'JetBrains Mono', monospace !important; background: #161b22; \
+padding: 3px 6px; border-radius: 4px; font-size: 0.85rem; color: #79c0ff; \
+border: 1px solid #30363d; }
 
 /* Alert boxes */
 .stAlert { border-radius: 8px; border: 1px solid #30363d; }
@@ -132,7 +139,8 @@ hr { border-color: #30363d; margin: 1.5rem 0; }
     color: #c9d1d9 !important;
     border-radius: 6px !important;
 }
-.stSelectbox > div > div:focus-within, .stTextInput > div > input:focus, [data-testid="stChatInput"]:focus-within {
+.stSelectbox > div > div:focus-within, .stTextInput > div > input:focus, \
+    [data-testid="stChatInput"]:focus-within {
     border-color: #58a6ff !important;
     box-shadow: 0 0 0 1px #58a6ff !important;
 }
@@ -193,8 +201,7 @@ if "chat_messages" not in st.session_state:
 # ---------------------------------------------------------------------------
 
 with st.sidebar:
-    st.markdown("## ⚙️ Smart Tool Log Parser")
-    st.caption("Semiconductor Equipment Intelligence")
+    st.image("./assets/logo.png", width="stretch")
     st.divider()
 
     st.markdown("### 📁 Upload Log File")
@@ -206,7 +213,7 @@ with st.sidebar:
 
     st.divider()
     st.markdown("### 🧪 Demo Logs")
-    if st.button("Generate Synthetic Logs", use_container_width=True):
+    if st.button("Generate Synthetic Logs", width="stretch"):
         with st.spinner("Generating..."):
             files = generate_sample_files("synthetic/samples")
             st.session_state["demo_files"] = files
@@ -215,9 +222,7 @@ with st.sidebar:
     if "demo_files" in st.session_state:
         st.caption("Load a demo file:")
         for fmt, path in st.session_state["demo_files"].items():
-            if st.button(
-                f"  {fmt.upper()}", key=f"demo_{fmt}", use_container_width=True
-            ):
+            if st.button(f"  {fmt.upper()}", key=f"demo_{fmt}", width="stretch"):
                 with open(path, "rb") as f:
                     content = f.read().decode("utf-8", errors="replace")
                 filename = os.path.basename(path)
@@ -235,7 +240,7 @@ with st.sidebar:
 
     st.divider()
     st.markdown("### 🗄️ Database")
-    if st.button("Clear All Data", use_container_width=True):
+    if st.button("Clear All Data", width="stretch"):
         db.clear_all()
         st.session_state.parsed_filenames = []
         st.session_state.last_filename = None
@@ -388,7 +393,7 @@ with tab1:
             return f"color: {colors.get(str(val).upper(), '#c9d1d9')}"
 
         styled = df[display_cols].style.map(_style_severity, subset=["severity"])
-        st.dataframe(styled, use_container_width=True, height=480)
+        st.dataframe(styled, width="stretch", height=480)
 
         # Download
         csv_export = df[display_cols].to_csv(index=False)
@@ -432,7 +437,7 @@ with tab2:
                 font_color="#c9d1d9",
                 legend_bgcolor="#0d0f14",
             )
-            st.plotly_chart(fig_sev, use_container_width=True)
+            st.plotly_chart(fig_sev, width="stretch")
 
         # Log type breakdown (horizontal bar)
         with col_r:
@@ -455,7 +460,7 @@ with tab2:
                 yaxis=dict(autorange="reversed"),
                 coloraxis_showscale=False,
             )
-            st.plotly_chart(fig_type, use_container_width=True)
+            st.plotly_chart(fig_type, width="stretch")
 
         # Events over time
         if "timestamp" in df.columns:
@@ -491,7 +496,7 @@ with tab2:
                     xaxis_title="Time",
                     yaxis_title="Count",
                 )
-        st.plotly_chart(fig_time, use_container_width=True)
+        st.plotly_chart(fig_time, width="stretch")
 
         # Alarms per tool
         alarm_df = (
@@ -516,7 +521,7 @@ with tab2:
                 font_color="#c9d1d9",
                 coloraxis_showscale=False,
             )
-            st.plotly_chart(fig_ta, use_container_width=True)
+            st.plotly_chart(fig_ta, width="stretch")
 
         # Sensor line chart (desaturated at rest, saturated on hover)
         sensor_df = (
@@ -620,7 +625,7 @@ with tab2:
                     xaxis=dict(gridcolor="#1e2730", zeroline=False, title="Time"),
                     yaxis=dict(gridcolor="#1e2730", zeroline=False, title=chosen_param),
                     title=dict(
-                        text=f"{chosen_param.capitalize()} Readings over Time",
+                        text=f"{chosen_param.capitalize()} Readings over Time",  # pyright: ignore[reportAttributeAccessIssue] # noqa: E501
                         font=dict(size=15, color="#e6edf3"),
                     ),
                     # Native Plotly hover line — draws a vertical rule across all traces
@@ -690,14 +695,15 @@ with tab2:
 
                 st.plotly_chart(
                     fig_sensor,
-                    use_container_width=True,
-                    key=f"sensor_{chosen_param.replace(' ', '_')}",
+                    width="stretch",
+                    key=f"sensor_{chosen_param.replace(' ', '_')}",  # pyright: ignore[reportAttributeAccessIssue] # noqa: E501
                 )
 # ─────────────────────── TAB 3: AI Insights ────────────────────────────────
 with tab3:
     if not config.OPENAI_API_KEY:
         st.warning(
-            "⚠️ OpenAI API key must be set in the .env file in the project root to enable AI features."
+            "⚠️ OpenAI API key must be set in the .env file in \
+                the project root to enable AI features."
         )
     elif df.empty:
         st.info("Upload logs first to chat with your data.")
@@ -735,7 +741,7 @@ with tab3:
 
             cols = st.columns(min(len(suggestions), 4))
             for i, sug in enumerate(suggestions[:4]):
-                if cols[i].button(sug, key=f"sug_{i}", use_container_width=True):
+                if cols[i].button(sug, key=f"sug_{i}", width="stretch"):
                     st.session_state.chat_messages.append(
                         {"role": "user", "content": sug}
                     )
@@ -811,7 +817,7 @@ with tab4:
     schema_df = pd.DataFrame(
         schema_info, columns=["Field", "Type", "Status", "Description"]
     )
-    st.dataframe(schema_df, use_container_width=True, hide_index=True)
+    st.dataframe(schema_df, width="stretch", hide_index=True)
 
     st.divider()
     st.markdown("### 🔄 Supported Input Formats")
@@ -835,7 +841,7 @@ with tab4:
     fmt_df = pd.DataFrame(
         fmt_info, columns=["Format", "Category", "Extensions", "Notes"]
     )
-    st.dataframe(fmt_df, use_container_width=True, hide_index=True)
+    st.dataframe(fmt_df, width="stretch", hide_index=True)
 
     st.divider()
     st.markdown("### ✅ Acceptance Criteria")
@@ -873,4 +879,4 @@ with tab4:
         ),
     ]
     ac_df = pd.DataFrame(ac, columns=["FR", "Requirement", "Acceptance Criterion"])
-    st.dataframe(ac_df, use_container_width=True, hide_index=True)
+    st.dataframe(ac_df, width="stretch", hide_index=True)
