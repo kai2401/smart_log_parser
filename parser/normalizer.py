@@ -8,8 +8,15 @@ from dateutil import parser as dateparser
 
 # Drain3 for template mining (used internally, not stored)
 try:
+    import os
     from drain3 import TemplateMiner
-    _template_miner = TemplateMiner()
+    from drain3.template_miner_config import TemplateMinerConfig
+
+    _config = TemplateMinerConfig()
+    _ini_path = os.path.join(os.path.dirname(__file__), "drain3.ini")
+    if os.path.exists(_ini_path):
+        _config.load(_ini_path)
+    _template_miner = TemplateMiner(config=_config)
 except ImportError:
     _template_miner = None
 
