@@ -25,52 +25,117 @@ except ImportError:
 # ---------------------------------------------------------------------------
 
 TIMESTAMP_ALIASES = {
-    "timestamp", "ts", "time", "datetime", "date_time", "log_time",
-    "event_time", "occurred_at", "recorded_at", "created_at",
+    "timestamp",
+    "ts",
+    "time",
+    "datetime",
+    "date_time",
+    "log_time",
+    "event_time",
+    "occurred_at",
+    "recorded_at",
+    "created_at",
 }
 
 TOOL_ID_ALIASES = {
-    "tool_id", "toolid", "tool", "machine_id", "machineid", "machine",
-    "equipment_id", "equipid", "device_id", "host", "hostname", "source",
-    "system", "unit_id",
+    "tool_id",
+    "toolid",
+    "tool",
+    "machine_id",
+    "machineid",
+    "machine",
+    "equipment_id",
+    "equipid",
+    "device_id",
+    "host",
+    "hostname",
+    "source",
+    "system",
+    "unit_id",
 }
 
 SEVERITY_ALIASES = {
-    "severity", "level", "log_level", "loglevel", "priority",
-    "importance", "sev", "type", "msg_type",
+    "severity",
+    "level",
+    "log_level",
+    "loglevel",
+    "priority",
+    "importance",
+    "sev",
+    "type",
+    "msg_type",
 }
 
 EVENT_NAME_ALIASES = {
-    "event_name", "event", "event_type", "eventtype", "action",
-    "operation", "step", "process_step", "description", "message",
-    "msg", "log_message", "text", "detail",
+    "event_name",
+    "event",
+    "event_type",
+    "eventtype",
+    "action",
+    "operation",
+    "step",
+    "process_step",
+    "description",
+    "message",
+    "msg",
+    "log_message",
+    "text",
+    "detail",
 }
 
 RECIPE_ID_ALIASES = {
-    "recipe_id", "recipe", "recipeid", "process_recipe", "job",
+    "recipe_id",
+    "recipe",
+    "recipeid",
+    "process_recipe",
+    "job",
 }
 
 WAFER_ID_ALIASES = {
-    "wafer_id", "waferid", "wafer", "lot_id", "lotid", "lot",
-    "substrate_id", "substrateid",
+    "wafer_id",
+    "waferid",
+    "wafer",
+    "lot_id",
+    "lotid",
+    "lot",
+    "substrate_id",
+    "substrateid",
 }
 
 PROCESS_STAGE_ALIASES = {
-    "process_stage", "stage", "step", "phase", "operation_phase",
+    "process_stage",
+    "stage",
+    "step",
+    "phase",
+    "operation_phase",
 }
 
 PARAM_NAME_ALIASES = {
-    "parameter_name", "param_name", "param", "parameter", "sensor",
-    "sensor_name", "metric", "key",
+    "parameter_name",
+    "param_name",
+    "param",
+    "parameter",
+    "sensor",
+    "sensor_name",
+    "metric",
+    "key",
 }
 
 PARAM_VALUE_ALIASES = {
-    "parameter_value", "param_value", "value", "reading",
-    "sensor_value", "measurement", "val",
+    "parameter_value",
+    "param_value",
+    "value",
+    "reading",
+    "sensor_value",
+    "measurement",
+    "val",
 }
 
 UNIT_ALIASES = {
-    "unit", "units", "uom", "measure",
+    "unit",
+    "units",
+    "uom",
+    "measure",
 }
 
 # ---------------------------------------------------------------------------
@@ -78,28 +143,28 @@ UNIT_ALIASES = {
 # ---------------------------------------------------------------------------
 
 SEVERITY_MAP = {
-    "debug":    "DEBUG",
-    "verbose":  "DEBUG",
-    "trace":    "DEBUG",
-    "info":     "INFO",
-    "inform":   "INFO",
+    "debug": "DEBUG",
+    "verbose": "DEBUG",
+    "trace": "DEBUG",
+    "info": "INFO",
+    "inform": "INFO",
     "information": "INFO",
-    "notice":   "INFO",
-    "warn":     "WARNING",
-    "warning":  "WARNING",
-    "caution":  "WARNING",
-    "error":    "ERROR",
-    "err":      "ERROR",
-    "failure":  "ERROR",
-    "fail":     "ERROR",
-    "fault":    "ERROR",
-    "fatal":    "CRITICAL",
-    "severe":   "CRITICAL",
+    "notice": "INFO",
+    "warn": "WARNING",
+    "warning": "WARNING",
+    "caution": "WARNING",
+    "error": "ERROR",
+    "err": "ERROR",
+    "failure": "ERROR",
+    "fail": "ERROR",
+    "fault": "ERROR",
+    "fatal": "CRITICAL",
+    "severe": "CRITICAL",
     "critical": "CRITICAL",
-    "crit":     "CRITICAL",
-    "alert":    "CRITICAL",
-    "emergency":"CRITICAL",
-    "emerg":    "CRITICAL",
+    "crit": "CRITICAL",
+    "alert": "CRITICAL",
+    "emergency": "CRITICAL",
+    "emerg": "CRITICAL",
 }
 
 
@@ -108,19 +173,19 @@ SEVERITY_MAP = {
 # ---------------------------------------------------------------------------
 
 PARAM_ALIAS_MAP = {
-    r"temp.*":          "temperature",
-    r"pressure.*":      "pressure",
-    r"flow.*":          "flow_rate",
-    r"power.*":         "power",
-    r"voltage.*":       "voltage",
-    r"current.*":       "current",
-    r"speed.*":         "speed",
-    r"rpm.*":           "rotation_speed",
-    r"humidity.*":      "humidity",
-    r"vac.*":           "vacuum_level",
-    r"rf.*":            "rf_power",
-    r"gas.*":           "gas_flow",
-    r"chuck.*temp.*":   "chuck_temperature",
+    r"temp.*": "temperature",
+    r"pressure.*": "pressure",
+    r"flow.*": "flow_rate",
+    r"power.*": "power",
+    r"voltage.*": "voltage",
+    r"current.*": "current",
+    r"speed.*": "speed",
+    r"rpm.*": "rotation_speed",
+    r"humidity.*": "humidity",
+    r"vac.*": "vacuum_level",
+    r"rf.*": "rf_power",
+    r"gas.*": "gas_flow",
+    r"chuck.*temp.*": "chuck_temperature",
     r"process.*time.*": "process_time",
 }
 
@@ -129,17 +194,18 @@ PARAM_ALIAS_MAP = {
 # ---------------------------------------------------------------------------
 
 LOG_TYPE_PATTERNS = {
-    "alarm":        r"alarm|fault|error|fail|critical|emergency",
+    "alarm": r"alarm|fault|error|fail|critical|emergency",
     "sensor_reading": r"sensor|reading|measur|temperat|pressure|flow|voltage|current",
     "process_step": r"recipe|step|stage|phase|etch|deposit|clean|anneal|ramp",
-    "maintenance":  r"mainten|calibrat|clean|replace|inspect|pm\b",
-    "info":         r"info|start|stop|complete|finish|init|boot|connect",
+    "maintenance": r"mainten|calibrat|clean|replace|inspect|pm\b",
+    "info": r"info|start|stop|complete|finish|init|boot|connect",
 }
 
 
 # ---------------------------------------------------------------------------
 # Public helpers
 # ---------------------------------------------------------------------------
+
 
 def _match_alias(key: str, alias_set: set) -> bool:
     return key.lower().strip() in alias_set
@@ -246,10 +312,12 @@ def normalise_record(raw: dict, source_format: str, filename: str) -> dict:
     out.setdefault("timestamp", None)
 
     # Classify log_type from combined text
-    combined = " ".join([
-        out.get("event_name", ""),
-        out.get("raw_message", ""),
-    ])
+    combined = " ".join(
+        [
+            out.get("event_name", ""),
+            out.get("raw_message", ""),
+        ]
+    )
     out.setdefault("log_type", _classify_log_type(combined))
 
     # Normalised message = clean human version
@@ -278,23 +346,24 @@ def normalise_record(raw: dict, source_format: str, filename: str) -> dict:
     # ─────────────────────────────────────────────────────────────
     # Post-processing: fill empty fields from event_name / raw_message
     # ─────────────────────────────────────────────────────────────
-    combined_text = " ".join([
-        out.get("event_name", ""),
-        out.get("raw_message", "")
-    ]).lower()
+    combined_text = " ".join(
+        [out.get("event_name", ""), out.get("raw_message", "")]
+    ).lower()
 
     # Fallback: extract tool_id from event_name if still UNKNOWN
     if out.get("tool_id") == "UNKNOWN" or not out.get("tool_id"):
-        tool_match = re.search(r'\b([A-Z]{2,6}[-_]?\d{2,6})\b', out.get("event_name", ""))
+        tool_match = re.search(
+            r"\b([A-Z]{2,6}[-_]?\d{2,6})\b", out.get("event_name", "")
+        )
         if tool_match:
             out["tool_id"] = tool_match.group(1)
 
     # Fallback: extract parameter name and value from patterns like "Parameter: value Unit"
     if not out.get("parameter_name"):
         param_match = re.search(
-            r'(?P<pname>Pressure|Temperature|Flow|Voltage|Current|Speed|RPM|Power|Step|Humidity)\s*[=:]\s*(?P<pval>-?\d+(?:\.\d+)?)\s*(?P<punit>Torr|RPM|C|%|V|A|W)?',
+            r"(?P<pname>Pressure|Temperature|Flow|Voltage|Current|Speed|RPM|Power|Step|Humidity)\s*[=:]\s*(?P<pval>-?\d+(?:\.\d+)?)\s*(?P<punit>Torr|RPM|C|%|V|A|W)?",
             out.get("event_name", ""),
-            re.IGNORECASE
+            re.IGNORECASE,
         )
         if param_match:
             out["parameter_name"] = _normalise_param_name(param_match.group("pname"))
@@ -304,20 +373,32 @@ def normalise_record(raw: dict, source_format: str, filename: str) -> dict:
 
     # Fallback: extract wafer_id, recipe_id, and step_number from event_name
     if not out.get("wafer_id"):
-        wafer_match = re.search(r'(?:wafer|lot|substrate)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)', combined_text, re.IGNORECASE)
+        wafer_match = re.search(
+            r"(?:wafer|lot|substrate)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)",
+            combined_text,
+            re.IGNORECASE,
+        )
         if wafer_match:
             out["wafer_id"] = wafer_match.group(1)
 
     if not out.get("recipe_id"):
-        recipe_match = re.search(r'(?:recipe|process)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)', combined_text, re.IGNORECASE)
+        recipe_match = re.search(
+            r"(?:recipe|process)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)",
+            combined_text,
+            re.IGNORECASE,
+        )
         if recipe_match:
             # Avoid matching words like "Start" or "StepComplete" as recipe IDs if they are just the event action
             candidate = recipe_match.group(1)
-            if candidate.lower() not in ('start', 'stepcomplete', 'stop', 'complete'):
+            if candidate.lower() not in ("start", "stepcomplete", "stop", "complete"):
                 out["recipe_id"] = candidate
 
     if not out.get("step_number"):
-        step_match = re.search(r'(?:step|stage|phase)\s*(?:no|num|number)?\s*[=:#]?\s*(\d+)', combined_text, re.IGNORECASE)
+        step_match = re.search(
+            r"(?:step|stage|phase)\s*(?:no|num|number)?\s*[=:#]?\s*(\d+)",
+            combined_text,
+            re.IGNORECASE,
+        )
         if step_match:
             try:
                 out["step_number"] = int(step_match.group(1))

@@ -3,7 +3,9 @@ from typing import Generator
 
 # Common timestamp patterns
 TS_PATTERNS = [
-    re.compile(r"(?P<timestamp>\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)"),
+    re.compile(
+        r"(?P<timestamp>\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)"
+    ),
     re.compile(r"(?P<timestamp>\d{2}/\d{2}/\d{4}\s+\d{2}:\d{2}:\d{2})"),
     re.compile(r"(?P<timestamp>\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})"),
 ]
@@ -59,7 +61,9 @@ def parse(content: str) -> Generator[dict, None, None]:
         # Tool ID (try start of line first, then bracketed, then key=value)
         m = TOOL_ID_RE.search(line)
         if m:
-            tool_id_val = m.group("tool_id") or m.group("tool_id2") or m.group("tool_id3") or ""
+            tool_id_val = (
+                m.group("tool_id") or m.group("tool_id2") or m.group("tool_id3") or ""
+            )
             if tool_id_val:
                 record["tool_id"] = tool_id_val.strip()
 
@@ -78,7 +82,9 @@ def parse(content: str) -> Generator[dict, None, None]:
         if params:
             # Use the first valid match (skip timestamp-like matches)
             for pname, pval, punit in params:
-                if len(pname) > 1 and not re.match(r"^\d{2}$", pname):  # Skip two-digit numbers
+                if len(pname) > 1 and not re.match(
+                    r"^\d{2}$", pname
+                ):  # Skip two-digit numbers
                     record.setdefault("parameter_name", pname)
                     record.setdefault("parameter_value", pval)
                     if punit and punit.strip():

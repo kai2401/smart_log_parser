@@ -2,7 +2,6 @@
 Detect log format from file extension + content sniffing.
 """
 
-import json
 import re
 
 
@@ -47,13 +46,15 @@ def _looks_like_syslog(content: str) -> bool:
         r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*\w+\[\d+\]:",
         re.MULTILINE,
     )
-    return bool(syslog_re.search(content[:2000]) or iso_syslog_re.search(content[:2000]))
+    return bool(
+        syslog_re.search(content[:2000]) or iso_syslog_re.search(content[:2000])
+    )
 
 
 def _looks_like_csv(content: str) -> bool:
-    lines = [l for l in content.splitlines() if l.strip()][:5]
+    lines = [line for line in content.splitlines() if line.strip()][:5]
     if not lines:
         return False
     # Check that most lines have the same number of commas
-    comma_counts = [l.count(",") for l in lines]
+    comma_counts = [line.count(",") for line in lines]
     return max(comma_counts) > 0 and len(set(comma_counts)) <= 2

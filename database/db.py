@@ -3,7 +3,6 @@ Database layer: SQLite storage for parsed LogEntry records.
 """
 
 import sqlite3
-import json
 from typing import Any
 from parser.schema import LogEntry
 import config
@@ -62,7 +61,9 @@ def insert_entries(entries: list[LogEntry]) -> int:
 
     cols = [f for f in LogEntry.__dataclass_fields__]
     placeholders = ", ".join("?" * len(cols))
-    sql = f"INSERT OR IGNORE INTO log_entries ({', '.join(cols)}) VALUES ({placeholders})"
+    sql = (
+        f"INSERT OR IGNORE INTO log_entries ({', '.join(cols)}) VALUES ({placeholders})"
+    )
 
     rows = []
     for e in entries:
@@ -75,7 +76,9 @@ def insert_entries(entries: list[LogEntry]) -> int:
     return len(rows)
 
 
-def update_ai_fields(entry_id: str, summary: str, classification: str, hint: str) -> None:
+def update_ai_fields(
+    entry_id: str, summary: str, classification: str, hint: str
+) -> None:
     sql = """
     UPDATE log_entries
     SET ai_summary = ?, ai_classification = ?, ai_root_cause_hint = ?
@@ -125,7 +128,9 @@ def query_entries(
         params.extend([pattern, pattern, pattern])
 
     where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    sql = f"SELECT * FROM log_entries {where} ORDER BY timestamp DESC, rowid DESC LIMIT ?"
+    sql = (
+        f"SELECT * FROM log_entries {where} ORDER BY timestamp DESC, rowid DESC LIMIT ?"
+    )
     params.append(limit)
 
     with _get_conn() as conn:
@@ -138,12 +143,31 @@ def get_summary_stats(source_filename: str | None = None) -> dict:
     params = [source_filename] if source_filename else []
 
     with _get_conn() as conn:
-        total      = conn.execute(f"SELECT COUNT(*) FROM log_entries {where}", params).fetchone()[0]
-        alarms     = conn.execute(f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} log_type = 'alarm'", params).fetchone()[0]
-        errors     = conn.execute(f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} severity IN ('ERROR','CRITICAL')", params).fetchone()[0]
-        warnings_c = conn.execute(f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} severity = 'WARNING'", params).fetchone()[0]
-        tools      = conn.execute(f"SELECT COUNT(DISTINCT tool_id) FROM log_entries {where}", params).fetchone()[0]
-    return {"total": total, "alarms": alarms, "errors": errors, "warnings": warnings_c, "tools": tools}
+        total = conn.execute(
+            f"SELECT COUNT(*) FROM log_entries {where}", params
+        ).fetchone()[0]
+        alarms = conn.execute(
+            f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} log_type = 'alarm'",
+            params,
+        ).fetchone()[0]
+        errors = conn.execute(
+            f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} severity IN ('ERROR','CRITICAL')",
+            params,
+        ).fetchone()[0]
+        warnings_c = conn.execute(
+            f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} severity = 'WARNING'",
+            params,
+        ).fetchone()[0]
+        tools = conn.execute(
+            f"SELECT COUNT(DISTINCT tool_id) FROM log_entries {where}", params
+        ).fetchone()[0]
+    return {
+        "total": total,
+        "alarms": alarms,
+        "errors": errors,
+        "warnings": warnings_c,
+        "tools": tools,
+    }
 
 
 def get_distinct_values(column: str, source_filename: str | None = None) -> list[str]:

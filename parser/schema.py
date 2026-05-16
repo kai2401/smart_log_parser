@@ -11,10 +11,12 @@ class LogEntry:
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
 
     # --- required core fields ---
-    timestamp: Optional[str] = None          # ISO-8601
+    timestamp: Optional[str] = None  # ISO-8601
     tool_id: Optional[str] = None
-    log_type: Optional[str] = None           # process_step | alarm | sensor_reading | maintenance | info
-    severity: Optional[str] = None           # DEBUG | INFO | WARNING | ERROR | CRITICAL
+    log_type: Optional[str] = (
+        None  # process_step | alarm | sensor_reading | maintenance | info
+    )
+    severity: Optional[str] = None  # DEBUG | INFO | WARNING | ERROR | CRITICAL
 
     # --- event ---
     event_name: Optional[str] = None
@@ -35,7 +37,7 @@ class LogEntry:
     normalized_message: Optional[str] = None
 
     # --- source ---
-    source_format: Optional[str] = None      # json | csv | xml | syslog | text
+    source_format: Optional[str] = None  # json | csv | xml | syslog | text
     source_filename: Optional[str] = None
 
     # --- LLM outputs (populated after analysis) ---

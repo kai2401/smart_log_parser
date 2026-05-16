@@ -11,8 +11,8 @@ OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
 DB_PATH = "tool_logs.db"
 
 # LLM settings
-LLM_MAX_TOKENS      = 1024
-LLM_BATCH_SIZE      = 10   # rows sent to LLM per batch-analysis call
+LLM_MAX_TOKENS = 1024
+LLM_BATCH_SIZE = 10  # rows sent to LLM per batch-analysis call
 LLM_TIMEOUT_SECONDS = 30
 
 # Severity order (higher = worse)

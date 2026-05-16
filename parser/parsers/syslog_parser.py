@@ -19,9 +19,13 @@ ISO_SYSLOG = re.compile(
 )
 
 SEVERITY_FROM_PRI = {
-    0: "CRITICAL", 1: "CRITICAL", 2: "CRITICAL",
-    3: "ERROR",    4: "WARNING",
-    5: "INFO",     6: "INFO",
+    0: "CRITICAL",
+    1: "CRITICAL",
+    2: "CRITICAL",
+    3: "ERROR",
+    4: "WARNING",
+    5: "INFO",
+    6: "INFO",
     7: "DEBUG",
 }
 
@@ -47,10 +51,10 @@ def parse(content: str) -> Generator[dict, None, None]:
         if m:
             yield {
                 "timestamp": m.group("timestamp"),
-                "tool_id":   m.group("host"),
+                "tool_id": m.group("host"),
                 "event_name": m.group("process").strip(),
-                "message":   m.group("message"),
-                "severity":  "INFO",
+                "message": m.group("message"),
+                "severity": "INFO",
             }
             continue
 
@@ -59,10 +63,10 @@ def parse(content: str) -> Generator[dict, None, None]:
             ts = f"{m.group('month')} {m.group('day')} {m.group('time')}"
             yield {
                 "timestamp": ts,
-                "tool_id":   m.group("host"),
+                "tool_id": m.group("host"),
                 "event_name": m.group("process").strip(),
-                "message":   m.group("message"),
-                "severity":  _pri_to_severity(m.group("pri")),
+                "message": m.group("message"),
+                "severity": _pri_to_severity(m.group("pri")),
             }
             continue
 

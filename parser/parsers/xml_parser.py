@@ -4,7 +4,7 @@ from typing import Generator
 
 def parse(content: str) -> Generator[dict, None, None]:
     """Yield raw record dicts from XML content.
-    
+
     Supports two shapes:
       <logs><entry ...>...</entry></logs>
       <log><event><key>value</key>...</event></log>
