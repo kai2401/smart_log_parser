@@ -215,4 +215,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-synthetic/samples/
+synthetic/samples/*
+fake*
+tool_logs.db
