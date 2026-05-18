@@ -339,9 +339,12 @@ def normalise_record(raw: dict, source_format: str, filename: str) -> dict:
         if raw_msg:
             try:
                 result = _template_miner.add_log_message(raw_msg)
-                # Template is mined but not returned; it enriches internal processing
+                out["drain_cluster_id"] = int(result["cluster_id"])
+                out["normalized_message"] = (
+                    f"Template #{result['cluster_id']}: {result['template_mined']}"
+                )
             except Exception:
-                pass  # Silent fail; normalization continues without template
+                out["drain_cluster_id"] = None
 
     # ─────────────────────────────────────────────────────────────
     # Post-processing: fill empty fields from event_name / raw_message

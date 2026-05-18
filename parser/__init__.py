@@ -6,7 +6,8 @@ Main parser pipeline:
 from parser.detector import detect_format
 from parser.normalizer import normalise_record
 from parser.schema import LogEntry
-from parser.llm_parser_engine import parse_with_llm
+import io
+import pandas as pd
 from parser.parsers import (
     json_parser,
     csv_parser,
@@ -32,6 +33,36 @@ def parse_log(content_bytes: bytes, filename: str) -> tuple[list[LogEntry], list
         entries  – successfully parsed and normalised entries
         warnings – list of human-readable warnings about skipped/invalid records
     """
+    if filename.lower().endswith(".parquet"):
+        try:
+            df = pd.read_parquet(io.BytesIO(content_bytes))
+            raw_records = df.to_dict(orient="records")
+            entries: list[LogEntry] = []
+            warnings: list[str] = []
+            for i, raw in enumerate(raw_records):
+                try:
+                    normalised = normalise_record(
+                        raw, source_format="parquet", filename=filename
+                    )
+                    entry = LogEntry(
+                        **{
+                            k: v
+                            for k, v in normalised.items()
+                            if hasattr(LogEntry, k) or k in LogEntry.__dataclass_fields__
+                        }
+                    )
+                    valid, missing = entry.is_valid()
+                    if not valid:
+                        warnings.append(
+                            f"Row {i + 1}: missing mandatory fields {missing} — saved anyway"
+                        )
+                    entries.append(entry)
+                except Exception as e:
+                    warnings.append(f"Row {i + 1}: normalisation error — {e}")
+            return entries, warnings
+        except Exception as e:
+            return [], [f"Failed to decode Parquet file {filename}: {e}"]
+
     fmt = detect_format(filename, content_bytes)
     
     entries: list[LogEntry] = []

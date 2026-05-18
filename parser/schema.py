@@ -35,6 +35,7 @@ class LogEntry:
     # --- messages ---
     raw_message: Optional[str] = None
     normalized_message: Optional[str] = None
+    drain_cluster_id: Optional[int] = None
 
     # --- source ---
     source_format: Optional[str] = None  # json | csv | xml | syslog | text

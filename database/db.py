@@ -24,11 +24,23 @@ CREATE TABLE IF NOT EXISTS log_entries (
     unit                TEXT,
     raw_message         TEXT,
     normalized_message  TEXT,
+    drain_cluster_id    INTEGER,
     source_format       TEXT,
     source_filename     TEXT,
     ai_summary          TEXT,
     ai_classification   TEXT,
     ai_root_cause_hint  TEXT
+);
+"""
+
+CREATE_JOBS_SQL = """
+CREATE TABLE IF NOT EXISTS processing_jobs (
+    id              TEXT PRIMARY KEY,
+    filename        TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    progress        INTEGER NOT NULL,
+    error_message   TEXT,
+    total_records   INTEGER
 );
 """
 
@@ -49,9 +61,19 @@ def _get_conn() -> sqlite3.Connection:
 def init_db() -> None:
     with _get_conn() as conn:
         conn.execute(CREATE_SQL)
+        conn.execute(CREATE_JOBS_SQL)
+        _ensure_column(conn, "drain_cluster_id", "INTEGER")
         for idx in INDEX_SQL:
             conn.execute(idx)
         conn.commit()
+
+
+def _ensure_column(conn: sqlite3.Connection, column: str, col_type: str) -> None:
+    existing = {
+        row["name"] for row in conn.execute("PRAGMA table_info(log_entries)")
+    }
+    if column not in existing:
+        conn.execute(f"ALTER TABLE log_entries ADD COLUMN {column} {col_type}")
 
 
 def insert_entries(entries: list[LogEntry]) -> int:
@@ -191,3 +213,40 @@ def delete_by_filename(filename: str) -> None:
     with _get_conn() as conn:
         conn.execute("DELETE FROM log_entries WHERE source_filename = ?", (filename,))
         conn.commit()
+
+
+def create_job(job_id: str, filename: str) -> None:
+    with _get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO processing_jobs (id, filename, status, progress) VALUES (?, ?, ?, ?)",
+            (job_id, filename, "PENDING", 0),
+        )
+        conn.commit()
+
+
+def update_job(
+    job_id: str,
+    status: str,
+    progress: int,
+    error_message: str | None = None,
+    total_records: int | None = None,
+) -> None:
+    with _get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE processing_jobs
+            SET status = ?, progress = ?, error_message = ?, total_records = ?
+            WHERE id = ?
+            """,
+            (status, progress, error_message, total_records, job_id),
+        )
+        conn.commit()
+
+
+def get_job(job_id: str) -> dict | None:
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, filename, status, progress, error_message, total_records FROM processing_jobs WHERE id = ?",
+            (job_id,),
+        ).fetchone()
+    return dict(row) if row else None

@@ -13,11 +13,92 @@ from database import db
 from llm import analyzer
 from synthetic.generator import generate_sample_files
 import streamlit.components.v1
+import re
+import time
+import uuid
+
+from worker import start_background_parsing
 
 import sys
 import os
 
 sys.path.insert(0, os.path.dirname(__file__))
+
+
+def is_valid_log_file(file_bytes: bytes, filename: str) -> bool:
+    """
+    Validates if the uploaded file is likely a structured, unstructured, or proprietary binary log.
+    Filters out nonsense text, explicit executables, and high-emoji content.
+    """
+    filename_lower = filename.lower()
+
+    # 1. Hard rejection of explicit non-log binaries and documents
+    invalid_extensions = [
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".pdf",
+        ".docx",
+        ".xlsx",
+        ".exe",
+        ".zip",
+        ".tar",
+        ".gz",
+    ]
+    if any(filename_lower.endswith(ext) for ext in invalid_extensions):
+        return False
+
+    # 2. Fast-pass for standard and known proprietary extensions
+    valid_extensions = [
+        ".log",
+        ".txt",
+        ".csv",
+        ".json",
+        ".xml",
+        ".tsv",
+        ".bin",
+        ".dat",
+        ".raw",
+        ".prc",
+        ".parquet",
+    ]
+    has_valid_ext = any(filename_lower.endswith(ext) for ext in valid_extensions)
+
+    # 3. Content heuristics (evaluate first 1024 bytes)
+    sample_bytes = file_bytes[:1024]
+
+    # Heuristic A: Binary payload detection
+    # Proprietary fab formats often contain null bytes. If detected, and it
+    # passed the invalid extension check, defer to the LLM hex-dump identifier.
+    if b"\x00" in sample_bytes:
+        return True
+
+    # 4. Text-based heuristics
+    sample_text = sample_bytes.decode("utf-8", errors="ignore")
+
+    # Heuristic B: Nonsense/emoji check
+    emoji_pattern = re.compile("[\U00010000-\U0010ffff]", flags=re.UNICODE)
+    if len(emoji_pattern.findall(sample_text)) > 10:
+        return False
+
+    # Heuristic C: Look for common log markers if no valid extension is present
+    if not has_valid_ext:
+        log_markers = [
+            r"\d{4}-\d{2}-\d{2}",
+            r"\{.*\}",
+            r"<.*>",
+            r"ERROR|INFO|WARN|DEBUG|FAULT",
+            r"0x[0-9a-fA-F]+",
+            r"\[.*\]",
+        ]
+        if not any(
+            re.search(marker, sample_text, re.IGNORECASE) for marker in log_markers
+        ):
+            # Reject pure alphabetical text without structure/numbers
+            if not re.search(r"\d", sample_text):
+                return False
+
+    return True
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -204,9 +285,10 @@ with st.sidebar:
     st.image("./assets/logo.png", width="stretch")
     st.divider()
 
-    st.markdown("### 📁 Upload Log File")
-    uploaded_file = st.file_uploader(
-        "Supports any log format (CSV, JSON, XML, Syslog, Binary, Parquet, etc.)",
+    st.markdown("### 📁 Upload Log Files")
+    uploaded_files = st.file_uploader(
+        "Supports mixed formats concurrently (JSON, Parquet, CSV, Syslog, Hex, etc.)",
+        accept_multiple_files=True,
         type=None,
         label_visibility="collapsed",
     )
@@ -250,33 +332,73 @@ with st.sidebar:
     st.divider()
 
 # ---------------------------------------------------------------------------
-# Handle file upload
+# Handle multi-file upload (batch jobs)
 # ---------------------------------------------------------------------------
 
-if uploaded_file:
-    # Only process if this specific file upload hasn't been parsed yet
-    if (
-        getattr(st.session_state, "last_uploaded_file_id", None)
-        != uploaded_file.file_id
-    ):
+if "active_job_ids" not in st.session_state:
+    st.session_state.active_job_ids = []
+if "processed_file_ids" not in st.session_state:
+    st.session_state.processed_file_ids = set()
+
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        if uploaded_file.file_id in st.session_state.processed_file_ids:
+            continue
+
         content_bytes = uploaded_file.read()
         filename = uploaded_file.name
-        with st.spinner(f"Parsing `{filename}`..."):
-            db.delete_by_filename(filename)
-            entries, warnings = parse_log(content_bytes, filename)
-            n = db.insert_entries(entries)
+
+        if not is_valid_log_file(content_bytes, filename):
+            st.error(f"❌ **Rejected:** `{filename}` failed validation heuristics.")
+            st.session_state.processed_file_ids.add(uploaded_file.file_id)
+            continue
+
+        job_id = str(uuid.uuid4())
+        db.create_job(job_id, filename)
+        start_background_parsing(content_bytes, filename, job_id)
+        st.session_state.active_job_ids.append(job_id)
+        st.session_state.processed_file_ids.add(uploaded_file.file_id)
+        st.session_state.chat_messages = []
+
+if st.session_state.active_job_ids:
+    st.markdown("### ⚙️ Processing Batch Queue")
+    jobs_to_remove = []
+    has_active_jobs = False
+
+    for job_id in st.session_state.active_job_ids:
+        job_state = db.get_job(job_id)
+        if not job_state:
+            jobs_to_remove.append(job_id)
+            continue
+
+        filename = job_state["filename"]
+        status = job_state["status"]
+        progress = job_state["progress"]
+        error_msg = job_state["error_message"]
+        total_records = job_state["total_records"]
+
+        if status in ["PENDING", "PROCESSING"]:
+            has_active_jobs = True
+            st.caption(f"**{filename}** - {status} ({progress}%)")
+            st.progress(progress / 100.0)
+        elif status == "COMPLETED":
+            st.success(
+                f"✅ **{filename}:** Normalised and stored **{total_records or 0}** rows."
+            )
+            st.session_state.last_filename = filename
             if filename not in st.session_state.parsed_filenames:
                 st.session_state.parsed_filenames.append(filename)
-            st.session_state.last_filename = filename
-            st.session_state.chat_messages = []  # Reset for new file
-            st.session_state.last_uploaded_file_id = uploaded_file.file_id
+            jobs_to_remove.append(job_id)
+        elif status == "FAILED":
+            st.error(f"❌ **{filename}:** Pipeline aborted - {error_msg}")
+            jobs_to_remove.append(job_id)
 
-        if n > 0:
-            st.success(f"✅ Parsed and stored **{n}** log entries from `{filename}`")
-        if warnings:
-            with st.expander(f"⚠️ {len(warnings)} parsing warnings"):
-                for w in warnings:
-                    st.warning(w)
+    for jid in jobs_to_remove:
+        st.session_state.active_job_ids.remove(jid)
+
+    if has_active_jobs:
+        time.sleep(1.0)
+        st.rerun()
 
 # ---------------------------------------------------------------------------
 # Main content
@@ -377,6 +499,7 @@ with tab1:
             "wafer_id",
             "recipe_id",
             "step_number",
+            "drain_cluster_id",
             "source_format",
             "normalized_message",
         ]
@@ -807,6 +930,7 @@ with tab4:
         ("unit", "TEXT", "Optional", "Unit of measurement"),
         ("raw_message", "TEXT", "✅ Req", "Original log line / message"),
         ("normalized_message", "TEXT", "Auto", "Cleaned human-readable version"),
+        ("drain_cluster_id", "INTEGER", "Auto", "Drain3 cluster/template ID"),
         ("source_format", "TEXT", "Auto", "json | csv | xml | syslog | text"),
         ("source_filename", "TEXT", "Auto", "Originating filename"),
         ("ai_summary", "TEXT", "LLM", "AI-generated plain English summary"),
