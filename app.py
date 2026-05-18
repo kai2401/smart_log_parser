@@ -206,8 +206,8 @@ with st.sidebar:
 
     st.markdown("### 📁 Upload Log File")
     uploaded_file = st.file_uploader(
-        "Supports JSON, CSV, XML, Syslog, Plain Text",
-        type=["json", "csv", "xml", "log", "txt", "syslog"],
+        "Supports any log format (CSV, JSON, XML, Syslog, Binary, Parquet, etc.)",
+        type=None,
         label_visibility="collapsed",
     )
 
@@ -224,11 +224,11 @@ with st.sidebar:
         for fmt, path in st.session_state["demo_files"].items():
             if st.button(f"  {fmt.upper()}", key=f"demo_{fmt}", width="stretch"):
                 with open(path, "rb") as f:
-                    content = f.read().decode("utf-8", errors="replace")
+                    content_bytes = f.read()
                 filename = os.path.basename(path)
                 with st.spinner(f"Parsing {filename}..."):
                     db.delete_by_filename(filename)
-                    entries, warnings = parse_log(content, filename)
+                    entries, warnings = parse_log(content_bytes, filename)
                     n = db.insert_entries(entries)
                     if filename not in st.session_state.parsed_filenames:
                         st.session_state.parsed_filenames.append(filename)
@@ -259,11 +259,11 @@ if uploaded_file:
         getattr(st.session_state, "last_uploaded_file_id", None)
         != uploaded_file.file_id
     ):
-        content = uploaded_file.read().decode("utf-8", errors="replace")
+        content_bytes = uploaded_file.read()
         filename = uploaded_file.name
         with st.spinner(f"Parsing `{filename}`..."):
             db.delete_by_filename(filename)
-            entries, warnings = parse_log(content, filename)
+            entries, warnings = parse_log(content_bytes, filename)
             n = db.insert_entries(entries)
             if filename not in st.session_state.parsed_filenames:
                 st.session_state.parsed_filenames.append(filename)
