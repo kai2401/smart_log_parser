@@ -1,8 +1,12 @@
 """
 Normalizer: maps heterogeneous raw field names/values to the standard LogEntry schema.
+
+Best-effort approach: missing timestamps default to now(), missing tool_id defaults
+to the filename stem. No field absence will crash the pipeline.
 """
 
 import re
+from datetime import datetime
 from typing import Any
 from dateutil import parser as dateparser
 
@@ -119,6 +123,7 @@ PARAM_NAME_ALIASES = {
     "sensor_name",
     "metric",
     "key",
+    "setpoint_name",
 }
 
 PARAM_VALUE_ALIASES = {
@@ -129,6 +134,7 @@ PARAM_VALUE_ALIASES = {
     "sensor_value",
     "measurement",
     "val",
+    "setpoint_value",
 }
 
 UNIT_ALIASES = {
@@ -203,8 +209,20 @@ LOG_TYPE_PATTERNS = {
 
 
 # ---------------------------------------------------------------------------
-# Public helpers
+# Internal helpers
 # ---------------------------------------------------------------------------
+
+
+def _flatten_dict(d: dict, parent_key: str = "", sep: str = "_") -> dict:
+    """Recursively flatten nested dicts into a single-level dict."""
+    items: list[tuple[str, Any]] = []
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+        if isinstance(v, dict):
+            items.extend(_flatten_dict(v, new_key, sep).items())
+        else:
+            items.append((new_key, v))
+    return dict(items)
 
 
 def _match_alias(key: str, alias_set: set) -> bool:
@@ -247,11 +265,30 @@ def _safe_float(val: Any) -> float | None:
         return None
 
 
-def normalise_record(raw: dict, source_format: str, filename: str) -> dict:
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
+def normalise_record(
+    raw: dict,
+    source_format: str,
+    filename: str,
+    is_recipe: bool = False,
+) -> dict:
     """
     Map a raw parsed record (arbitrary key-value dict) to the standard schema dict.
-    Returns a dict ready to pass into LogEntry(**...).
+
+    Best-effort normalisation:
+      - Missing timestamp → defaults to datetime.now().isoformat()
+      - Missing tool_id   → defaults to filename stem
+      - Missing severity  → defaults to "INFO"
+
+    Returns a dict ready to pass into LogEntry(**...) or RecipeEntry(**...).
     """
+    # Flatten nested structures before alias matching
+    flat_raw = _flatten_dict(raw)
+
     out: dict[str, Any] = {
         "source_format": source_format,
         "source_filename": filename,
@@ -260,7 +297,7 @@ def normalise_record(raw: dict, source_format: str, filename: str) -> dict:
     # Collect any raw_message early so log_type inference works
     raw_msg_candidates = []
 
-    for k, v in raw.items():
+    for k, v in flat_raw.items():
         key = k.lower().strip()
 
         if _match_alias(key, TIMESTAMP_ALIASES):
@@ -304,13 +341,27 @@ def normalise_record(raw: dict, source_format: str, filename: str) -> dict:
     if raw_msg_candidates:
         out.setdefault("raw_message", " | ".join(raw_msg_candidates))
     else:
-        out["raw_message"] = str(raw)
+        out["raw_message"] = str(flat_raw)
 
-    # Defaults
+    # ── Best-effort defaults (prevents crashes) ──────────────────────────
     out.setdefault("severity", "INFO")
-    out.setdefault("tool_id", "UNKNOWN")
-    out.setdefault("timestamp", None)
 
+    # Derive tool_id from filename stem if still missing
+    if not out.get("tool_id") or out.get("tool_id") == "":
+        out["tool_id"] = filename.rsplit(".", 1)[0] if "." in filename else filename
+
+    # Derive timestamp from now if still missing
+    if not out.get("timestamp"):
+        out["timestamp"] = datetime.now().isoformat()
+
+    # ── Recipe-specific handling ─────────────────────────────────────────
+    if is_recipe:
+        out.setdefault("recipe_id", "UNKNOWN")
+        out.setdefault("setpoint_name", out.get("parameter_name", "UNKNOWN"))
+        out.setdefault("setpoint_value", out.get("parameter_value", 0.0))
+        return out
+
+    # ── Log-specific classification ──────────────────────────────────────
     # Classify log_type from combined text
     combined = " ".join(
         [

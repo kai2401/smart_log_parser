@@ -27,61 +27,125 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 def is_valid_log_file(file_bytes: bytes, filename: str) -> bool:
     """
-    Validates if the uploaded file is likely a structured, unstructured, or proprietary binary log.
-    Filters out nonsense text, explicit executables, and high-emoji content.
+    Validates if the uploaded file is a plausible semiconductor fab log.
+    Rejects: emoji/ASCII-art files, non-log binaries, and content
+    with zero relevance to equipment/process logging.
     """
     filename_lower = filename.lower()
 
     # 1. Hard rejection of explicit non-log binaries and documents
     invalid_extensions = [
-        ".png",
-        ".jpg",
-        ".jpeg",
-        ".pdf",
-        ".docx",
-        ".xlsx",
-        ".exe",
-        ".zip",
-        ".tar",
-        ".gz",
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".ico",
+        ".pdf", ".docx", ".xlsx", ".pptx",
+        ".exe", ".dll", ".msi",
+        ".zip", ".tar", ".gz", ".7z", ".rar",
+        ".mp3", ".mp4", ".avi", ".mov", ".wav",
     ]
     if any(filename_lower.endswith(ext) for ext in invalid_extensions):
         return False
 
     # 2. Fast-pass for standard and known proprietary extensions
     valid_extensions = [
-        ".log",
-        ".txt",
-        ".csv",
-        ".json",
-        ".xml",
-        ".tsv",
-        ".bin",
-        ".dat",
-        ".raw",
-        ".prc",
-        ".parquet",
+        ".log", ".txt", ".csv", ".json", ".xml", ".tsv",
+        ".bin", ".dat", ".raw", ".prc", ".parquet",
     ]
     has_valid_ext = any(filename_lower.endswith(ext) for ext in valid_extensions)
 
-    # 3. Content heuristics (evaluate first 1024 bytes)
+    # 3. Content heuristics (evaluate first 1024 bytes for quick checks)
     sample_bytes = file_bytes[:1024]
 
     # Heuristic A: Binary payload detection
-    # Proprietary fab formats often contain null bytes. If detected, and it
-    # passed the invalid extension check, defer to the LLM hex-dump identifier.
+    # Proprietary fab formats often contain null bytes.
     if b"\x00" in sample_bytes:
         return True
 
     # 4. Text-based heuristics
     sample_text = sample_bytes.decode("utf-8", errors="ignore")
 
-    # Heuristic B: Nonsense/emoji check
+    # Heuristic B: Emoji rejection (very low threshold — fab logs should have none)
     emoji_pattern = re.compile("[\U00010000-\U0010ffff]", flags=re.UNICODE)
-    if len(emoji_pattern.findall(sample_text)) > 10:
+    emoji_count = len(emoji_pattern.findall(sample_text))
+    if emoji_count > 2:
         return False
 
-    # Heuristic C: Look for common log markers if no valid extension is present
+    # Heuristic C: Common emoji shortcodes / emoticons in text
+    emoticon_pattern = re.compile(
+        r"[:;]['\-]?[)(DPp/\\|]|[<>]3|xD|XD|\bლ\b|¯\\?_\(ツ\)_/¯|"
+        r"[\U0000231A-\U0000232A]|[\U000023E9-\U000023F3]|[\U000025AA-\U000025AB]|"
+        r"[\U00002600-\U000027BF]|[\U0000FE00-\U0000FE0F]|[\U0001F000-\U0001FAFF]",
+        re.UNICODE,
+    )
+    if len(emoticon_pattern.findall(sample_text)) > 5:
+        return False
+
+    # Heuristic D: ASCII art / decorative text detection
+    # Reject files with heavy box-drawing, repeated decorative characters, or figlet-style art
+    ascii_art_indicators = [
+        r"[═║╔╗╚╝╠╣╦╩╬]{3,}",              # box-drawing characters
+        r"[─│┌┐└┘├┤┬┴┼]{5,}",              # light box-drawing
+        r"[*#=\-~_]{10,}",                   # long decorative lines (10+ chars)
+        r"[/\\|]{5,}",                        # repeated slashes (art patterns)
+        r"(?:\.{5,}\s*){2,}",                # dot leaders / art
+        r"[░▒▓█]{3,}",                       # block elements
+        r"[♠♣♥♦★☆●○◆◇]{3,}",               # decorative symbols
+        r"(?:\^[_v]\^|\(╯°□°\)╯|ʕ•ᴥ•ʔ)",    # kaomoji / text faces
+    ]
+    ascii_art_hits = sum(
+        1 for pat in ascii_art_indicators
+        if re.search(pat, sample_text)
+    )
+    if ascii_art_hits >= 2:
+        return False
+
+    # 5. Semiconductor fab relevance gate
+    # Scan a larger sample (up to 4 KB) for domain-specific keywords.
+    # Files with ZERO fab-relevant terms are rejected as unrelated content.
+    extended_text = file_bytes[:4096].decode("utf-8", errors="ignore").lower()
+
+    fab_keywords = [
+        # Equipment & tools
+        r"\btool[_\s]?id\b", r"\bmachine[_\s]?id\b", r"\bequip", r"\bchamber\b",
+        r"\bdevice[_\s]?id\b", r"\bhost\b",
+        # Process
+        r"\bwafer\b", r"\blot[_\s]?id\b", r"\brecipe\b", r"\bsetpoint\b",
+        r"\bprocess[_\s]?(step|stage|phase)\b", r"\betch\b", r"\bdeposit\b",
+        r"\banneal\b", r"\bclean\b", r"\bsputt", r"\bcvd\b", r"\bpvd\b",
+        # Sensors / parameters
+        r"\bpressure\b", r"\btemperature\b", r"\bflow[_\s]?rate\b", r"\bvacuum\b",
+        r"\brf[_\s]?power\b", r"\btorr\b", r"\brpm\b", r"\bsccm\b",
+        r"\bvoltage\b", r"\bcurrent\b", r"\bpower\b",
+        # Log severity / events
+        r"\b(info|warn|error|critical|debug|fault|alarm)\b",
+        r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}",  # ISO timestamp
+        r"\btimestamp\b", r"\bseverity\b", r"\blog[_\s]?(type|level)\b",
+        # Fab-specific
+        r"\bpm\b", r"\bmaintenan", r"\bcalibrat", r"\bsensor\b",
+        r"\bsubstrate\b", r"\bfoup\b", r"\bloadlock\b", r"\bendpoint\b",
+    ]
+
+    fab_hits = sum(
+        1 for kw in fab_keywords
+        if re.search(kw, extended_text)
+    )
+
+    # Require at least 2 fab-relevant keyword matches
+    if fab_hits < 2:
+        # Last chance: if it has a valid log extension AND structured data markers,
+        # allow it (could be a generic structured log from fab equipment)
+        if has_valid_ext:
+            log_markers = [
+                r"\d{4}-\d{2}-\d{2}",
+                r"\{.*\}",
+                r"<.*>",
+                r"ERROR|INFO|WARN|DEBUG",
+                r"0x[0-9a-fA-F]+",
+                r"\[.*\]",
+            ]
+            if any(re.search(m, sample_text, re.IGNORECASE) for m in log_markers):
+                return True
+        return False
+
+    # Heuristic F: Look for common log markers if no valid extension is present
     if not has_valid_ext:
         log_markers = [
             r"\d{4}-\d{2}-\d{2}",
@@ -94,7 +158,6 @@ def is_valid_log_file(file_bytes: bytes, filename: str) -> bool:
         if not any(
             re.search(marker, sample_text, re.IGNORECASE) for marker in log_markers
         ):
-            # Reject pure alphabetical text without structure/numbers
             if not re.search(r"\d", sample_text):
                 return False
 
@@ -345,7 +408,7 @@ if uploaded_files:
         if uploaded_file.file_id in st.session_state.processed_file_ids:
             continue
 
-        content_bytes = uploaded_file.read()
+        content_bytes = uploaded_file.getvalue()
         filename = uploaded_file.name
 
         if not is_valid_log_file(content_bytes, filename):
@@ -429,12 +492,13 @@ with col_h2:
 
 stats = db.get_summary_stats(active_file)
 
-c1, c2, c3, c4, c5 = st.columns(5)
+c1, c2, c3, c4, c5, c6 = st.columns(6)
 c1.metric("Total Entries", f"{stats['total']:,}")
 c2.metric("Unique Tools", stats["tools"])
 c3.metric("🔴 Alarms", stats["alarms"])
 c4.metric("⚠️ Errors", stats["errors"])
 c5.metric("🟡 Warnings", stats["warnings"])
+c6.metric("📋 Recipes", stats.get("recipes", 0))
 
 st.divider()
 
@@ -1053,11 +1117,18 @@ with tab4:
         ("XML", "Structured", ".xml", "Repeated child elements treated as records"),
         ("Syslog", "Semi-structured", ".log", "RFC 3164 and ISO 8601 syslog variants"),
         (
+            "KV",
+            "Semi-structured",
+            ".log / .txt",
+            "Key=value or key:value pairs, auto-detected",
+        ),
+        (
             "Text",
             "Unstructured",
             ".txt / .log",
             "Regex extraction of timestamps, severity, params",
         ),
+        ("Parquet", "Binary", ".parquet", "Apache Parquet columnar format via pandas"),
     ]
     fmt_df = pd.DataFrame(
         fmt_info, columns=["Format", "Category", "Extensions", "Notes"]

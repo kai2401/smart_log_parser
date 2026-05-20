@@ -1,13 +1,13 @@
 """
-Database layer: SQLite storage for parsed LogEntry records.
+Database layer: SQLite storage for parsed LogEntry and RecipeEntry records.
 """
 
 import sqlite3
 from typing import Any
-from parser.schema import LogEntry
+from parser.schema import LogEntry, RecipeEntry
 import config
 
-CREATE_SQL = """
+CREATE_LOG_SQL = """
 CREATE TABLE IF NOT EXISTS log_entries (
     id                  TEXT PRIMARY KEY,
     timestamp           TEXT,
@@ -33,6 +33,23 @@ CREATE TABLE IF NOT EXISTS log_entries (
 );
 """
 
+CREATE_RECIPE_SQL = """
+CREATE TABLE IF NOT EXISTS recipe_entries (
+    id                  TEXT PRIMARY KEY,
+    timestamp           TEXT,
+    tool_id             TEXT,
+    recipe_id           TEXT,
+    recipe_name         TEXT,
+    step_number         INTEGER,
+    setpoint_name       TEXT,
+    setpoint_value      REAL,
+    unit                TEXT,
+    raw_message         TEXT,
+    source_format       TEXT,
+    source_filename     TEXT
+);
+"""
+
 CREATE_JOBS_SQL = """
 CREATE TABLE IF NOT EXISTS processing_jobs (
     id              TEXT PRIMARY KEY,
@@ -49,6 +66,8 @@ INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_tool_id    ON log_entries(tool_id);",
     "CREATE INDEX IF NOT EXISTS idx_severity   ON log_entries(severity);",
     "CREATE INDEX IF NOT EXISTS idx_log_type   ON log_entries(log_type);",
+    "CREATE INDEX IF NOT EXISTS idx_recipe_tool ON recipe_entries(tool_id);",
+    "CREATE INDEX IF NOT EXISTS idx_recipe_id   ON recipe_entries(recipe_id);",
 ]
 
 
@@ -60,24 +79,27 @@ def _get_conn() -> sqlite3.Connection:
 
 def init_db() -> None:
     with _get_conn() as conn:
-        conn.execute(CREATE_SQL)
+        conn.execute(CREATE_LOG_SQL)
+        conn.execute(CREATE_RECIPE_SQL)
         conn.execute(CREATE_JOBS_SQL)
-        _ensure_column(conn, "drain_cluster_id", "INTEGER")
+        _ensure_column(conn, "log_entries", "drain_cluster_id", "INTEGER")
         for idx in INDEX_SQL:
             conn.execute(idx)
         conn.commit()
 
 
-def _ensure_column(conn: sqlite3.Connection, column: str, col_type: str) -> None:
+def _ensure_column(
+    conn: sqlite3.Connection, table: str, column: str, col_type: str
+) -> None:
     existing = {
-        row["name"] for row in conn.execute("PRAGMA table_info(log_entries)")
+        row["name"] for row in conn.execute(f"PRAGMA table_info({table})")
     }
     if column not in existing:
-        conn.execute(f"ALTER TABLE log_entries ADD COLUMN {column} {col_type}")
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
 
 
 def insert_entries(entries: list[LogEntry]) -> int:
-    """Insert a batch of entries. Returns count inserted."""
+    """Insert a batch of log entries. Returns count inserted."""
     if not entries:
         return 0
 
@@ -85,6 +107,28 @@ def insert_entries(entries: list[LogEntry]) -> int:
     placeholders = ", ".join("?" * len(cols))
     sql = (
         f"INSERT OR IGNORE INTO log_entries ({', '.join(cols)}) VALUES ({placeholders})"
+    )
+
+    rows = []
+    for e in entries:
+        d = e.to_dict()
+        rows.append(tuple(d.get(c) for c in cols))
+
+    with _get_conn() as conn:
+        conn.executemany(sql, rows)
+        conn.commit()
+    return len(rows)
+
+
+def insert_recipes(entries: list[RecipeEntry]) -> int:
+    """Insert a batch of recipe entries. Returns count inserted."""
+    if not entries:
+        return 0
+
+    cols = [f for f in RecipeEntry.__dataclass_fields__]
+    placeholders = ", ".join("?" * len(cols))
+    sql = (
+        f"INSERT OR IGNORE INTO recipe_entries ({', '.join(cols)}) VALUES ({placeholders})"
     )
 
     rows = []
@@ -160,6 +204,35 @@ def query_entries(
     return [dict(r) for r in rows]
 
 
+def query_recipes(
+    tool_id: str | None = None,
+    recipe_id: str | None = None,
+    source_filename: str | None = None,
+    limit: int = 500,
+) -> list[dict]:
+    """Query recipe entries with optional filters."""
+    conditions = []
+    params: list[Any] = []
+
+    if tool_id:
+        conditions.append("tool_id = ?")
+        params.append(tool_id)
+    if recipe_id:
+        conditions.append("recipe_id = ?")
+        params.append(recipe_id)
+    if source_filename:
+        conditions.append("source_filename = ?")
+        params.append(source_filename)
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    sql = f"SELECT * FROM recipe_entries {where} ORDER BY timestamp DESC LIMIT ?"
+    params.append(limit)
+
+    with _get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+    return [dict(r) for r in rows]
+
+
 def get_summary_stats(source_filename: str | None = None) -> dict:
     where = "WHERE source_filename = ?" if source_filename else ""
     params = [source_filename] if source_filename else []
@@ -183,12 +256,17 @@ def get_summary_stats(source_filename: str | None = None) -> dict:
         tools = conn.execute(
             f"SELECT COUNT(DISTINCT tool_id) FROM log_entries {where}", params
         ).fetchone()[0]
+        recipes = conn.execute(
+            f"SELECT COUNT(*) FROM recipe_entries {'WHERE source_filename = ?' if source_filename else ''}",
+            [source_filename] if source_filename else [],
+        ).fetchone()[0]
     return {
         "total": total,
         "alarms": alarms,
         "errors": errors,
         "warnings": warnings_c,
         "tools": tools,
+        "recipes": recipes,
     }
 
 
@@ -206,12 +284,14 @@ def get_distinct_values(column: str, source_filename: str | None = None) -> list
 def clear_all() -> None:
     with _get_conn() as conn:
         conn.execute("DELETE FROM log_entries")
+        conn.execute("DELETE FROM recipe_entries")
         conn.commit()
 
 
 def delete_by_filename(filename: str) -> None:
     with _get_conn() as conn:
         conn.execute("DELETE FROM log_entries WHERE source_filename = ?", (filename,))
+        conn.execute("DELETE FROM recipe_entries WHERE source_filename = ?", (filename,))
         conn.commit()
 
 
