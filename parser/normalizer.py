@@ -270,6 +270,8 @@ def _safe_float(val: Any) -> float | None:
 # ---------------------------------------------------------------------------
 
 
+import json
+
 def normalise_record(
     raw: dict,
     source_format: str,
@@ -277,24 +279,18 @@ def normalise_record(
     is_recipe: bool = False,
 ) -> dict:
     """
-    Map a raw parsed record (arbitrary key-value dict) to the standard schema dict.
-
-    Best-effort normalisation:
-      - Missing timestamp → defaults to datetime.now().isoformat()
-      - Missing tool_id   → defaults to filename stem
-      - Missing severity  → defaults to "INFO"
-
-    Returns a dict ready to pass into LogEntry(**...) or RecipeEntry(**...).
+    Schema-on-Read Normalization.
+    Extracts core relational fields and dumps all others into a 'metadata' JSON string.
+    Injects safe defaults for missing core fields.
     """
-    # Flatten nested structures before alias matching
     flat_raw = _flatten_dict(raw)
 
     out: dict[str, Any] = {
         "source_format": source_format,
         "source_filename": filename,
     }
-
-    # Collect any raw_message early so log_type inference works
+    
+    metadata: dict[str, Any] = {}
     raw_msg_candidates = []
 
     for k, v in flat_raw.items():
@@ -302,161 +298,124 @@ def normalise_record(
 
         if _match_alias(key, TIMESTAMP_ALIASES):
             out["timestamp"] = _parse_timestamp(v)
-
         elif _match_alias(key, TOOL_ID_ALIASES):
             out.setdefault("tool_id", str(v))
-
         elif _match_alias(key, SEVERITY_ALIASES):
             out["severity"] = _normalise_severity(str(v))
-
         elif _match_alias(key, EVENT_NAME_ALIASES):
             msg = str(v)
-            out.setdefault("event_name", msg)
+            metadata["event_name"] = msg
             raw_msg_candidates.append(msg)
-
-        elif _match_alias(key, RECIPE_ID_ALIASES):
-            out.setdefault("recipe_id", str(v))
-
-        elif _match_alias(key, WAFER_ID_ALIASES):
-            out.setdefault("wafer_id", str(v))
-
-        elif _match_alias(key, PROCESS_STAGE_ALIASES):
-            out.setdefault("process_stage", str(v))
-
-        elif _match_alias(key, PARAM_NAME_ALIASES):
-            out.setdefault("parameter_name", _normalise_param_name(str(v)))
-
-        elif _match_alias(key, PARAM_VALUE_ALIASES):
-            out.setdefault("parameter_value", _safe_float(v))
-
-        elif _match_alias(key, UNIT_ALIASES):
-            out.setdefault("unit", str(v))
-
         else:
-            # Fallback: treat unknown string fields as part of raw message
-            if isinstance(v, str) and v.strip():
-                raw_msg_candidates.append(f"{k}={v}")
+            # Check if it matches any of the old aliases, just so we standardise keys in metadata
+            if _match_alias(key, RECIPE_ID_ALIASES):
+                metadata["recipe_id"] = str(v)
+            elif _match_alias(key, WAFER_ID_ALIASES):
+                metadata["wafer_id"] = str(v)
+            elif _match_alias(key, PROCESS_STAGE_ALIASES):
+                metadata["process_stage"] = str(v)
+            elif _match_alias(key, PARAM_NAME_ALIASES):
+                metadata["parameter_name"] = _normalise_param_name(str(v))
+            elif _match_alias(key, PARAM_VALUE_ALIASES):
+                metadata["parameter_value"] = _safe_float(v)
+            elif _match_alias(key, UNIT_ALIASES):
+                metadata["unit"] = str(v)
+            else:
+                metadata[k] = v
+                if isinstance(v, str) and v.strip():
+                    raw_msg_candidates.append(f"{k}={v}")
 
-    # Build raw_message
-    if raw_msg_candidates:
-        out.setdefault("raw_message", " | ".join(raw_msg_candidates))
+    if "raw_message" in flat_raw:
+        out["raw_message"] = str(flat_raw["raw_message"])
+    elif raw_msg_candidates:
+        out["raw_message"] = " | ".join(raw_msg_candidates)
     else:
-        out["raw_message"] = str(flat_raw)
+        out["raw_message"] = json.dumps(flat_raw, default=str)
 
-    # ── Best-effort defaults (prevents crashes) ──────────────────────────
+    # ── Default Injection ──────────────────────────────────────────
     out.setdefault("severity", "INFO")
 
-    # Derive tool_id from filename stem if still missing
-    if not out.get("tool_id") or out.get("tool_id") == "":
+    if not out.get("tool_id") or out.get("tool_id") == "UNKNOWN":
         out["tool_id"] = filename.rsplit(".", 1)[0] if "." in filename else filename
+        if not out["tool_id"]:
+            out["tool_id"] = "UNKNOWN_TOOL"
 
-    # Derive timestamp from now if still missing
     if not out.get("timestamp"):
         out["timestamp"] = datetime.now().isoformat()
-
-    # ── Recipe-specific handling ─────────────────────────────────────────
-    if is_recipe:
-        out.setdefault("recipe_id", "UNKNOWN")
-        out.setdefault("setpoint_name", out.get("parameter_name", "UNKNOWN"))
-        out.setdefault("setpoint_value", out.get("parameter_value", 0.0))
-        return out
-
-    # ── Log-specific classification ──────────────────────────────────────
-    # Classify log_type from combined text
-    combined = " ".join(
-        [
-            out.get("event_name", ""),
-            out.get("raw_message", ""),
-        ]
-    )
+        
+    # Drain3 template mining exclusively on raw_message
+    if _template_miner is not None:
+        raw_msg = out.get("raw_message", "")
+        if raw_msg:
+            try:
+                result = _template_miner.add_log_message(raw_msg)
+                out["drain_cluster_id"] = int(result["cluster_id"])
+                metadata["drain_template"] = result["template_mined"]
+            except Exception:
+                out["drain_cluster_id"] = None
+                
+    # Classify log_type and normalized_message
+    combined = " ".join([metadata.get("event_name", ""), out.get("raw_message", "")])
     out.setdefault("log_type", _classify_log_type(combined))
 
-    # Normalised message = clean human version
     parts = []
     if out.get("tool_id"):
         parts.append(f"[{out['tool_id']}]")
     if out.get("severity"):
         parts.append(f"{out['severity']}:")
-    if out.get("event_name"):
-        parts.append(out["event_name"])
-    if out.get("parameter_name") and out.get("parameter_value") is not None:
-        unit = out.get("unit", "")
-        parts.append(f"| {out['parameter_name']}={out['parameter_value']}{unit}")
-    out["normalized_message"] = " ".join(parts) if parts else out.get("raw_message", "")
+    if metadata.get("event_name"):
+        parts.append(metadata["event_name"])
+    if metadata.get("parameter_name") and metadata.get("parameter_value") is not None:
+        unit = metadata.get("unit", "")
+        parts.append(f"| {metadata['parameter_name']}={metadata['parameter_value']}{unit}")
+    metadata["normalized_message"] = " ".join(parts) if parts else out.get("raw_message", "")
 
-    # Drain3 template mining (for enrichment only, not stored in DB)
-    if _template_miner is not None:
-        raw_msg = out.get("raw_message") or out.get("event_name") or ""
-        if raw_msg:
-            try:
-                result = _template_miner.add_log_message(raw_msg)
-                out["drain_cluster_id"] = int(result["cluster_id"])
-                out["normalized_message"] = (
-                    f"Template #{result['cluster_id']}: {result['template_mined']}"
-                )
-            except Exception:
-                out["drain_cluster_id"] = None
-
-    # ─────────────────────────────────────────────────────────────
-    # Post-processing: fill empty fields from event_name / raw_message
-    # ─────────────────────────────────────────────────────────────
-    combined_text = " ".join(
-        [out.get("event_name", ""), out.get("raw_message", "")]
-    ).lower()
-
-    # Fallback: extract tool_id from event_name if still UNKNOWN
-    if out.get("tool_id") == "UNKNOWN" or not out.get("tool_id"):
-        tool_match = re.search(
-            r"\b([A-Z]{2,6}[-_]?\d{2,6})\b", out.get("event_name", "")
-        )
+    # Post-processing fallback
+    combined_text = combined.lower()
+    if out.get("tool_id") == "UNKNOWN_TOOL":
+        tool_match = re.search(r"\b([A-Z]{2,6}[-_]?\d{2,6})\b", metadata.get("event_name", ""))
         if tool_match:
             out["tool_id"] = tool_match.group(1)
 
-    # Fallback: extract parameter name and value from patterns like "Parameter: value Unit"
-    if not out.get("parameter_name"):
+    if not metadata.get("parameter_name"):
         param_match = re.search(
             r"(?P<pname>Pressure|Temperature|Flow|Voltage|Current|Speed|RPM|Power|Step|Humidity)\s*[=:]\s*(?P<pval>-?\d+(?:\.\d+)?)\s*(?P<punit>Torr|RPM|C|%|V|A|W)?",
-            out.get("event_name", ""),
+            metadata.get("event_name", ""),
             re.IGNORECASE,
         )
         if param_match:
-            out["parameter_name"] = _normalise_param_name(param_match.group("pname"))
-            out["parameter_value"] = _safe_float(param_match.group("pval"))
+            metadata["parameter_name"] = _normalise_param_name(param_match.group("pname"))
+            metadata["parameter_value"] = _safe_float(param_match.group("pval"))
             if param_match.group("punit"):
-                out["unit"] = param_match.group("punit")
+                metadata["unit"] = param_match.group("punit")
 
-    # Fallback: extract wafer_id, recipe_id, and step_number from event_name
-    if not out.get("wafer_id"):
-        wafer_match = re.search(
-            r"(?:wafer|lot|substrate)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)",
-            combined_text,
-            re.IGNORECASE,
-        )
+    if not metadata.get("wafer_id"):
+        wafer_match = re.search(r"(?:wafer|lot|substrate)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)", combined_text, re.IGNORECASE)
         if wafer_match:
-            out["wafer_id"] = wafer_match.group(1)
+            metadata["wafer_id"] = wafer_match.group(1)
 
-    if not out.get("recipe_id"):
-        recipe_match = re.search(
-            r"(?:recipe|process)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)",
-            combined_text,
-            re.IGNORECASE,
-        )
+    if not metadata.get("recipe_id"):
+        recipe_match = re.search(r"(?:recipe|process)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)", combined_text, re.IGNORECASE)
         if recipe_match:
-            # Avoid matching words like "Start" or "StepComplete" as recipe IDs if they are just the event action
             candidate = recipe_match.group(1)
             if candidate.lower() not in ("start", "stepcomplete", "stop", "complete"):
-                out["recipe_id"] = candidate
+                metadata["recipe_id"] = candidate
 
-    if not out.get("step_number"):
-        step_match = re.search(
-            r"(?:step|stage|phase)\s*(?:no|num|number)?\s*[=:#]?\s*(\d+)",
-            combined_text,
-            re.IGNORECASE,
-        )
+    if not metadata.get("step_number"):
+        step_match = re.search(r"(?:step|stage|phase)\s*(?:no|num|number)?\s*[=:#]?\s*(\d+)", combined_text, re.IGNORECASE)
         if step_match:
             try:
-                out["step_number"] = int(step_match.group(1))
+                metadata["step_number"] = int(step_match.group(1))
             except ValueError:
                 pass
+                
+    if is_recipe:
+        metadata.setdefault("recipe_id", "UNKNOWN")
+        metadata.setdefault("setpoint_name", metadata.get("parameter_name", "UNKNOWN"))
+        metadata.setdefault("setpoint_value", metadata.get("parameter_value", 0.0))
+        out["log_type"] = "recipe"
 
+    # Serialize metadata
+    out["metadata"] = json.dumps(metadata, default=str)
+    
     return out

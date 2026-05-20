@@ -158,15 +158,16 @@ def parse_log(
         else:
             warnings.append(
                 f"No deterministic parser found for format '{fmt}' in {filename}. "
-                f"Falling back to text parser."
+                f"Falling back to universal byte-safe parser."
             )
-            # Ultimate fallback: text parser
-            raw_records = list(text_parser.parse(content_str))
+            # Ultimate fallback: universal parser
+            from parser.parsers import universal_parser
+            raw_records = list(universal_parser.parse(content_bytes))
             for i, raw in enumerate(raw_records):
                 try:
                     normalised = normalise_record(
                         raw,
-                        source_format="text",
+                        source_format="universal",
                         filename=filename,
                         is_recipe=is_recipe,
                     )
@@ -206,8 +207,8 @@ def _detect_format_smart(
         kv_hits = len(re.findall(r"[\w.\-]+\s*[=:]\s*\S+", sample))
         if kv_hits >= 2:
             return "kv"
-        # Final fallback: plain text
-        return "text"
+        # Final fallback: universal byte-safe
+        return "universal"
 
     return fmt
 
@@ -247,14 +248,6 @@ def _build_entry(normalised: dict, is_recipe: bool) -> LogEntry:
     Construct a LogEntry from normalised dict.
     Filters keys to only those that exist on the dataclass.
     """
-    # For now, both logs and recipes are stored as LogEntry for unified querying.
-    # Recipe-specific fields (setpoint_name, setpoint_value) are mapped to
-    # parameter_name and parameter_value respectively.
-    if is_recipe:
-        normalised.setdefault("parameter_name", normalised.pop("setpoint_name", None))
-        normalised.setdefault("parameter_value", normalised.pop("setpoint_value", None))
-        normalised.setdefault("log_type", "recipe")
-
     return LogEntry(
         **{
             k: v

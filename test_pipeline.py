@@ -42,8 +42,9 @@ def test_recipe_detection():
     entries, warnings = parse_log(data, "recipe_config.json")
     assert len(entries) >= 1
     e = entries[0]
+    meta = json.loads(e.metadata)
     assert e.log_type == "recipe", f"Expected log_type='recipe', got '{e.log_type}'"
-    print(f"  PASS: log_type={e.log_type}, recipe_id={e.recipe_id}")
+    print(f"  PASS: log_type={e.log_type}, recipe_id={meta.get('recipe_id')}")
 
 
 def test_best_effort_defaults():
@@ -90,3 +91,4 @@ if __name__ == "__main__":
 
     print(f"\n{'='*50}")
     print(f"Results: {passed}/{len(tests)} tests passed")
+

@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 # Configure OpenAI API key
-client = OpenAI(api_key=config.OPENAI_API_KEY)
+client = OpenAI(api_key=config.OPENAI_API_KEY) if config.OPENAI_API_KEY else None
 
 
 # ---------------------------------------------------------------------------
@@ -34,6 +34,8 @@ Return ONLY the JSON array. No markdown fences, no preamble.
 
 def _call_chat(system: str, user: str, max_tokens: int) -> str:
     """Call the OpenAI chat completion endpoint and return the assistant content as text."""
+    if not client:
+        raise Exception("OpenAI API key not configured. Please add it to your .env file.")
     try:
         response = client.chat.completions.create(
             model=config.OPENAI_MODEL,
@@ -206,6 +208,9 @@ def chat_with_logs(
     messages: list[dict], stats: dict, sample_entries: list[dict]
 ) -> str:
     """Chat with the LLM using domain-enforced guardrails and sanitized context."""
+    if not client:
+        return "⚠️ OpenAI API key not configured. Please add it to your .env file."
+
     context_msg = f"CONTEXT:\nStats: {json.dumps(stats)}\nSample Data: {json.dumps(sample_entries[:20])}"
 
     llm_messages = [

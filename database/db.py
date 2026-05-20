@@ -3,6 +3,7 @@ Database layer: SQLite storage for parsed LogEntry and RecipeEntry records.
 """
 
 import sqlite3
+import json
 from typing import Any
 from parser.schema import LogEntry, RecipeEntry
 import config
@@ -14,17 +15,9 @@ CREATE TABLE IF NOT EXISTS log_entries (
     tool_id             TEXT,
     log_type            TEXT,
     severity            TEXT,
-    event_name          TEXT,
-    recipe_id           TEXT,
-    wafer_id            TEXT,
-    process_stage       TEXT,
-    step_number         INTEGER,
-    parameter_name      TEXT,
-    parameter_value     REAL,
-    unit                TEXT,
     raw_message         TEXT,
-    normalized_message  TEXT,
     drain_cluster_id    INTEGER,
+    metadata            TEXT,
     source_format       TEXT,
     source_filename     TEXT,
     ai_summary          TEXT,
@@ -38,12 +31,7 @@ CREATE TABLE IF NOT EXISTS recipe_entries (
     id                  TEXT PRIMARY KEY,
     timestamp           TEXT,
     tool_id             TEXT,
-    recipe_id           TEXT,
-    recipe_name         TEXT,
-    step_number         INTEGER,
-    setpoint_name       TEXT,
-    setpoint_value      REAL,
-    unit                TEXT,
+    metadata            TEXT,
     raw_message         TEXT,
     source_format       TEXT,
     source_filename     TEXT
@@ -65,9 +53,7 @@ INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_timestamp  ON log_entries(timestamp);",
     "CREATE INDEX IF NOT EXISTS idx_tool_id    ON log_entries(tool_id);",
     "CREATE INDEX IF NOT EXISTS idx_severity   ON log_entries(severity);",
-    "CREATE INDEX IF NOT EXISTS idx_log_type   ON log_entries(log_type);",
     "CREATE INDEX IF NOT EXISTS idx_recipe_tool ON recipe_entries(tool_id);",
-    "CREATE INDEX IF NOT EXISTS idx_recipe_id   ON recipe_entries(recipe_id);",
 ]
 
 
@@ -82,7 +68,7 @@ def init_db() -> None:
         conn.execute(CREATE_LOG_SQL)
         conn.execute(CREATE_RECIPE_SQL)
         conn.execute(CREATE_JOBS_SQL)
-        _ensure_column(conn, "log_entries", "drain_cluster_id", "INTEGER")
+        _ensure_column(conn, "log_entries", "metadata", "TEXT")
         for idx in INDEX_SQL:
             conn.execute(idx)
         conn.commit()
@@ -188,7 +174,7 @@ def query_entries(
         params.append(source_filename)
     if search:
         conditions.append(
-            "(raw_message LIKE ? OR event_name LIKE ? OR normalized_message LIKE ?)"
+            "(raw_message LIKE ? OR json_extract(metadata, '$.event_name') LIKE ? OR json_extract(metadata, '$.normalized_message') LIKE ?)"
         )
         pattern = f"%{search}%"
         params.extend([pattern, pattern, pattern])
@@ -201,7 +187,18 @@ def query_entries(
 
     with _get_conn() as conn:
         rows = conn.execute(sql, params).fetchall()
-    return [dict(r) for r in rows]
+        
+    results = []
+    for r in rows:
+        d = dict(r)
+        if d.get("metadata"):
+            try:
+                meta = json.loads(d.pop("metadata"))
+                d.update(meta)
+            except Exception:
+                pass
+        results.append(d)
+    return results
 
 
 def query_recipes(
@@ -218,7 +215,7 @@ def query_recipes(
         conditions.append("tool_id = ?")
         params.append(tool_id)
     if recipe_id:
-        conditions.append("recipe_id = ?")
+        conditions.append("json_extract(metadata, '$.recipe_id') = ?")
         params.append(recipe_id)
     if source_filename:
         conditions.append("source_filename = ?")
@@ -230,7 +227,18 @@ def query_recipes(
 
     with _get_conn() as conn:
         rows = conn.execute(sql, params).fetchall()
-    return [dict(r) for r in rows]
+
+    results = []
+    for r in rows:
+        d = dict(r)
+        if d.get("metadata"):
+            try:
+                meta = json.loads(d.pop("metadata"))
+                d.update(meta)
+            except Exception:
+                pass
+        results.append(d)
+    return results
 
 
 def get_summary_stats(source_filename: str | None = None) -> dict:
@@ -273,9 +281,17 @@ def get_summary_stats(source_filename: str | None = None) -> dict:
 def get_distinct_values(column: str, source_filename: str | None = None) -> list[str]:
     where = "WHERE source_filename = ?" if source_filename else ""
     params = [source_filename] if source_filename else []
+    
+    # If it's a dynamic column, extract from JSON
+    core_columns = {"id", "timestamp", "tool_id", "log_type", "severity", "raw_message", "drain_cluster_id", "source_format", "source_filename", "ai_summary", "ai_classification", "ai_root_cause_hint", "metadata"}
+    if column not in core_columns:
+        db_col = f"json_extract(metadata, '$.{column}')"
+    else:
+        db_col = column
+
     with _get_conn() as conn:
         rows = conn.execute(
-            f"SELECT DISTINCT {column} FROM log_entries {where} ORDER BY {column}",
+            f"SELECT DISTINCT {db_col} FROM log_entries {where} ORDER BY {db_col}",
             params,
         ).fetchall()
     return [r[0] for r in rows if r[0]]
@@ -330,3 +346,4 @@ def get_job(job_id: str) -> dict | None:
             (job_id,),
         ).fetchone()
     return dict(row) if row else None
+

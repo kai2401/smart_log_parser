@@ -14,29 +14,13 @@ class LogEntry:
     # --- required core fields (best-effort defaults prevent crashes) ---
     timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
     tool_id: str = "UNKNOWN"
-    log_type: Optional[str] = (
-        None  # process_step | alarm | sensor_reading | maintenance | info
-    )
+    log_type: Optional[str] = None
     severity: str = "INFO"  # DEBUG | INFO | WARNING | ERROR | CRITICAL
-
-    # --- event ---
-    event_name: Optional[str] = None
-
-    # --- process context ---
-    recipe_id: Optional[str] = None
-    wafer_id: Optional[str] = None
-    process_stage: Optional[str] = None
-    step_number: Optional[int] = None
-
-    # --- sensor / parameter ---
-    parameter_name: Optional[str] = None
-    parameter_value: Optional[float] = None
-    unit: Optional[str] = None
-
-    # --- messages ---
     raw_message: str = ""
-    normalized_message: Optional[str] = None
     drain_cluster_id: Optional[int] = None
+
+    # --- dynamic schema overflow ---
+    metadata: str = "{}"
 
     # --- source ---
     source_format: Optional[str] = None  # json | csv | xml | syslog | text | kv
@@ -73,13 +57,8 @@ class RecipeEntry:
     # --- equipment ---
     tool_id: str = "UNKNOWN"
 
-    # --- recipe specifics ---
-    recipe_id: str = "UNKNOWN"
-    recipe_name: Optional[str] = None
-    step_number: Optional[int] = None
-    setpoint_name: str = "UNKNOWN"
-    setpoint_value: float = 0.0
-    unit: Optional[str] = None
+    # --- dynamic schema overflow ---
+    metadata: str = "{}"
 
     # --- metadata ---
     raw_message: str = ""
@@ -91,7 +70,7 @@ class RecipeEntry:
 
     @staticmethod
     def mandatory_fields() -> list[str]:
-        return ["timestamp", "tool_id", "recipe_id"]
+        return ["timestamp", "tool_id"]
 
     def is_valid(self) -> tuple[bool, list[str]]:
         missing = [f for f in self.mandatory_fields() if not getattr(self, f)]
