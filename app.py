@@ -821,6 +821,57 @@ with tab2:
                     width="stretch",
                     key=f"sensor_{chosen_param.replace(' ', '_')}",  # pyright: ignore[reportAttributeAccessIssue] # noqa: E501
                 )
+
+        st.divider()
+        st.markdown("### 🔬 Root Cause Sequence Analysis")
+        st.caption("Select a critical fault to view the preceding temporal events.")
+
+        error_query = (
+            "SELECT id, timestamp, tool_id, event_name "
+            "FROM log_entries "
+            "WHERE severity IN ('ERROR', 'CRITICAL') AND source_filename = ?"
+        )
+        with db._get_conn() as conn:
+            error_df = pd.read_sql_query(error_query, conn, params=(active_file,))
+
+        if not error_df.empty:
+            error_options = (
+                error_df.apply(
+                    lambda x: f"[{x['timestamp']}] {x['tool_id']} - {x['event_name']}",
+                    axis=1,
+                ).tolist()
+            )
+            selected_error_str = st.selectbox("Target Fault:", error_options)
+
+            if selected_error_str:
+                sel_idx = error_options.index(selected_error_str)
+                target_row = error_df.iloc[sel_idx]
+                t_time = target_row["timestamp"]
+                t_tool = target_row["tool_id"]
+
+                seq_query = """
+                    SELECT timestamp, severity, log_type, parameter_name, parameter_value, event_name
+                    FROM log_entries
+                    WHERE tool_id = ? AND timestamp <= ? AND source_filename = ?
+                    ORDER BY timestamp DESC LIMIT 10
+                """
+                with db._get_conn() as conn:
+                    seq_df = pd.read_sql_query(
+                        seq_query, conn, params=(t_tool, t_time, active_file)
+                    )
+
+                seq_df = seq_df.sort_values(by="timestamp", ascending=True)
+
+                def highlight_target(row):
+                    if row["timestamp"] == t_time:
+                        return ["background-color: rgba(255, 99, 71, 0.2)"] * len(row)
+                    return [""] * len(row)
+
+                st.dataframe(seq_df.style.apply(highlight_target, axis=1), width="stretch")
+        else:
+            st.info(
+                "No critical faults detected in the current log file to perform RCA."
+            )
 # ─────────────────────── TAB 3: AI Insights ────────────────────────────────
 with tab3:
     if not config.OPENAI_API_KEY:
@@ -831,6 +882,52 @@ with tab3:
     elif df.empty:
         st.info("Upload logs first to chat with your data.")
     else:
+        st.markdown("### 📑 Executive Shift Report")
+        if st.button(
+            "Generate Shift Summary Report",
+            type="primary",
+            use_container_width=True,
+        ):
+            with st.spinner("Aggregating metrics and generating executive summary..."):
+                with db._get_conn() as conn:
+                    anomalies = pd.read_sql_query(
+                        """
+                        SELECT event_name, COUNT(*) as freq
+                        FROM log_entries
+                        WHERE severity IN ('ERROR', 'CRITICAL') AND source_filename = ?
+                        GROUP BY event_name
+                        ORDER BY freq DESC
+                        LIMIT 5
+                        """,
+                        conn,
+                        params=(active_file,),
+                    ).to_dict(orient="records")
+
+                report_context = {
+                    "Total Logs": stats.get("total", 0),
+                    "Error Count": stats.get("errors", 0),
+                    "Alarm Count": stats.get("alarms", 0),
+                    "Affected Tools": db.get_distinct_values("tool_id", active_file),
+                    "Most Frequent Anomalies": anomalies,
+                }
+
+                prompt = f"""
+Act as a Semiconductor Fab Operations Manager. Review the following shift metrics:
+{report_context}
+
+Generate a concise, 3-section Markdown report:
+1. **Shift Overview**: 2 sentences on general stability.
+2. **Critical Excursions**: Bullet points detailing the highest frequency errors.
+3. **Recommended Actions**: 2 actionable engineering steps based on the anomalies.
+"""
+
+                response = analyzer.generate_text(prompt, max_tokens=600)
+
+                st.success("Report Generated")
+                st.markdown(response)
+
+        st.divider()
+
         st.markdown("### 🤖 Chat with Your Log Data")
         st.caption(
             "Ask questions about the active log file, its anomalies, tool performance, and errors."

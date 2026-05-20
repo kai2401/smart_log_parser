@@ -162,6 +162,19 @@ def summarise_session(stats: dict, sample_entries: list[dict]) -> str:
         return f"LLM summary unavailable: {e}"
 
 
+def generate_text(
+    prompt: str,
+    system: str | None = None,
+    max_tokens: int = 600,
+) -> str:
+    """Generate freeform text for reports or summaries."""
+    system_msg = system or "You are a semiconductor fab operations manager."
+    try:
+        return _call_chat(system_msg, prompt, max_tokens=max_tokens)
+    except Exception as e:
+        return f"⚠️ LLM unavailable: {e}"
+
+
 # ---------------------------------------------------------------------------
 # Conversational Chatbot (Guardrail Enforced)
 # ---------------------------------------------------------------------------
