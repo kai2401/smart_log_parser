@@ -435,7 +435,10 @@ def normalise_record(
                 continue  # already handled in base assignment
             # Everything else the parser extracted goes into metadata
             if v is not None and str(v).strip():
-                metadata[k] = v
+                if k == "parameter_value":
+                    metadata[k] = _safe_float(v)
+                else:
+                    metadata[k] = v
 
         # Build raw_message from parser's message field if raw_message is missing
         if not flat_raw.get("raw_message"):

@@ -532,6 +532,8 @@ with st.expander("🔍 Filters", expanded=True):
 
 rows = db.query_entries(**filter_kwargs, limit=500)
 df = pd.DataFrame(rows) if rows else pd.DataFrame()
+if not df.empty and "parameter_value" in df.columns:
+    df["parameter_value"] = pd.to_numeric(df["parameter_value"], errors="coerce")
 
 # ---------------------------------------------------------------------------
 # Tabs
@@ -938,6 +940,8 @@ with tab2:
                     )
 
                 seq_df = seq_df.sort_values(by="timestamp", ascending=True)
+                if "parameter_value" in seq_df.columns:
+                    seq_df["parameter_value"] = pd.to_numeric(seq_df["parameter_value"], errors="coerce")
 
                 # Truncate raw_message for display
                 if "raw_message" in seq_df.columns:
