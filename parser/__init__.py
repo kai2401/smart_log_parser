@@ -200,8 +200,13 @@ def _detect_format_smart(
     """
     fmt = detect_format(filename, content_bytes)
 
-    # If the standard detector couldn't match, try KV heuristic
+    # If the standard detector returned 'llm' (binary/unknown)
     if fmt == "llm":
+        # Binary files with known extensions → universal byte-safe parser
+        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+        if ext in ("bin", "dat", "raw") or b'\x00' in content_bytes[:1024]:
+            return "universal"
+
         # Check for key=value patterns in the first 500 chars
         sample = content_str[:500]
         kv_hits = len(re.findall(r"[\w.\-]+\s*[=:]\s*\S+", sample))

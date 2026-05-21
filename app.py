@@ -891,17 +891,24 @@ with tab2:
         st.caption("Select a critical fault to view the preceding temporal events.")
 
         error_query = (
-            "SELECT id, timestamp, tool_id, event_name "
+            "SELECT id, timestamp, tool_id, "
+            "COALESCE(json_extract(metadata, '$.event_name'), raw_message) as event_name, "
+            "drain_cluster_id "
             "FROM log_entries "
-            "WHERE severity IN ('ERROR', 'CRITICAL') AND source_filename = ?"
+            "WHERE severity IN ('ERROR', 'CRITICAL') AND source_filename = ? "
+            "ORDER BY timestamp DESC"
         )
         with db._get_conn() as conn:
             error_df = pd.read_sql_query(error_query, conn, params=(active_file,))
 
         if not error_df.empty:
+            # Truncate long event names for the dropdown
+            error_df["display_name"] = error_df["event_name"].apply(
+                lambda x: (x[:80] + "…") if isinstance(x, str) and len(x) > 80 else x
+            )
             error_options = (
                 error_df.apply(
-                    lambda x: f"[{x['timestamp']}] {x['tool_id']} - {x['event_name']}",
+                    lambda x: f"[{x['timestamp']}] {x['tool_id']} — {x['display_name']}",
                     axis=1,
                 ).tolist()
             )
@@ -914,10 +921,16 @@ with tab2:
                 t_tool = target_row["tool_id"]
 
                 seq_query = """
-                    SELECT timestamp, severity, log_type, parameter_name, parameter_value, event_name
+                    SELECT timestamp, severity, log_type,
+                           json_extract(metadata, '$.parameter_name') as parameter_name,
+                           json_extract(metadata, '$.parameter_value') as parameter_value,
+                           json_extract(metadata, '$.unit') as unit,
+                           COALESCE(json_extract(metadata, '$.event_name'), raw_message) as event_name,
+                           drain_cluster_id,
+                           raw_message
                     FROM log_entries
                     WHERE tool_id = ? AND timestamp <= ? AND source_filename = ?
-                    ORDER BY timestamp DESC LIMIT 10
+                    ORDER BY timestamp DESC LIMIT 20
                 """
                 with db._get_conn() as conn:
                     seq_df = pd.read_sql_query(
@@ -926,12 +939,27 @@ with tab2:
 
                 seq_df = seq_df.sort_values(by="timestamp", ascending=True)
 
+                # Truncate raw_message for display
+                if "raw_message" in seq_df.columns:
+                    seq_df["raw_message"] = seq_df["raw_message"].apply(
+                        lambda x: (x[:120] + "…") if isinstance(x, str) and len(x) > 120 else x
+                    )
+
+                # Drop columns that are entirely NULL (cleaner for unstructured-only data)
+                seq_df = seq_df.dropna(axis=1, how="all")
+
                 def highlight_target(row):
                     if row["timestamp"] == t_time:
                         return ["background-color: rgba(255, 99, 71, 0.2)"] * len(row)
                     return [""] * len(row)
 
                 st.dataframe(seq_df.style.apply(highlight_target, axis=1), width="stretch")
+
+                # Show cluster context if drain_cluster_id exists on the target fault
+                target_cluster = target_row.get("drain_cluster_id")
+                if target_cluster is not None:
+                    st.caption(f"🔗 Drain3 Cluster ID: **{int(target_cluster)}** — "
+                               "other events sharing this template pattern may indicate recurring issues.")
         else:
             st.info(
                 "No critical faults detected in the current log file to perform RCA."
@@ -956,7 +984,8 @@ with tab3:
                 with db._get_conn() as conn:
                     anomalies = pd.read_sql_query(
                         """
-                        SELECT event_name, COUNT(*) as freq
+                        SELECT COALESCE(json_extract(metadata, '$.event_name'), raw_message) as event_name,
+                               COUNT(*) as freq
                         FROM log_entries
                         WHERE severity IN ('ERROR', 'CRITICAL') AND source_filename = ?
                         GROUP BY event_name
@@ -1081,7 +1110,7 @@ with tab4:
             "process_step | alarm | sensor_reading | maintenance | info",
         ),
         ("severity", "TEXT", "✅ Req", "DEBUG | INFO | WARNING | ERROR | CRITICAL"),
-        ("event_name", "TEXT", "Optional", "Human-readable event description"),
+        ("event_name", "JSON→TEXT", "Optional", "Human-readable event description (in metadata)"),
         ("recipe_id", "TEXT", "Optional", "Process recipe identifier"),
         ("wafer_id", "TEXT", "Optional", "Wafer / lot identifier"),
         ("process_stage", "TEXT", "Optional", "LOAD | PROCESS | VENT | UNLOAD etc."),

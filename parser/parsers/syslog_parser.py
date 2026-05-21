@@ -10,8 +10,9 @@ RFC3164 = re.compile(
     r"(?P<message>.*)"
 )
 
-# ISO syslog: "2024-01-15T08:30:00 hostname process[pid]: message"
+# ISO syslog: "<132>2024-01-15 08:30:00 hostname process[pid]: message"
 ISO_SYSLOG = re.compile(
+    r"(?:<(?P<pri>\d+)>)?"
     r"(?P<timestamp>\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:[+-]\d{2}:\d{2}|Z)?)\s+"
     r"(?P<host>\S+)\s+"
     r"(?P<process>[^\[:]+)(?:\[(?P<pid>\d+)\])?:\s*"
@@ -52,9 +53,11 @@ def parse(content: str) -> Generator[dict, None, None]:
             yield {
                 "timestamp": m.group("timestamp"),
                 "tool_id": m.group("host"),
-                "event_name": m.group("process").strip(),
+                "event_name": m.group("message").strip(),
+                "process": m.group("process").strip(),
                 "message": m.group("message"),
-                "severity": "INFO",
+                "severity": _pri_to_severity(m.group("pri")),
+                "raw_message": m.group("message").strip(),
             }
             continue
 
@@ -64,9 +67,11 @@ def parse(content: str) -> Generator[dict, None, None]:
             yield {
                 "timestamp": ts,
                 "tool_id": m.group("host"),
-                "event_name": m.group("process").strip(),
+                "event_name": m.group("message").strip(),
+                "process": m.group("process").strip(),
                 "message": m.group("message"),
                 "severity": _pri_to_severity(m.group("pri")),
+                "raw_message": m.group("message").strip(),
             }
             continue
 

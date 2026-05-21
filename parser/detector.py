@@ -34,6 +34,9 @@ def detect_format(filename: str, content_bytes: bytes) -> str:
         # Could still be plain text — peek at content
         if _looks_like_syslog(content):
             return "syslog"
+        # Check for structured text logs before KV
+        if _looks_like_text_log(content):
+            return "text"
         # Try KV detection before falling back
         if _looks_like_kv(content):
             return "kv"
@@ -49,6 +52,9 @@ def detect_format(filename: str, content_bytes: bytes) -> str:
         return "syslog"
     if _looks_like_csv(stripped):
         return "csv"
+    # Check for text-log patterns BEFORE KV (text logs often contain key=value in messages)
+    if _looks_like_text_log(stripped):
+        return "text"
     if _looks_like_kv(stripped):
         return "kv"
 
@@ -56,17 +62,27 @@ def detect_format(filename: str, content_bytes: bytes) -> str:
 
 
 def _looks_like_syslog(content: str) -> bool:
-    """Matches RFC 3164 / RFC 5424 syslog patterns."""
+    """Matches RFC 3164 / RFC 5424 / ISO syslog patterns."""
+    # RFC 3164: "<PRI>Mon DD HH:MM:SS hostname ..."
     syslog_re = re.compile(
         r"^(?:<\d+>)?\w{3}\s+\d+\s+\d{2}:\d{2}:\d{2}",
         re.MULTILINE,
     )
-    iso_syslog_re = re.compile(
+    # ISO with T separator: "2024-01-15T08:30:00 hostname process[pid]:"
+    iso_syslog_t_re = re.compile(
         r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.*\w+\[\d+\]:",
         re.MULTILINE,
     )
+    # ISO with space separator and optional PRI: "<132>2024-03-01 08:00:00 HOST process[pid]:"
+    iso_syslog_space_re = re.compile(
+        r"^(?:<\d+>)?\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\s+\S+\s+\S+\[\d+\]:",
+        re.MULTILINE,
+    )
+    sample = content[:2000]
     return bool(
-        syslog_re.search(content[:2000]) or iso_syslog_re.search(content[:2000])
+        syslog_re.search(sample)
+        or iso_syslog_t_re.search(sample)
+        or iso_syslog_space_re.search(sample)
     )
 
 
@@ -84,3 +100,16 @@ def _looks_like_kv(content: str) -> bool:
     sample = content[:1000]
     kv_hits = len(re.findall(r"[\w.\-]+\s*=\s*\S+", sample))
     return kv_hits >= 3
+
+
+def _looks_like_text_log(content: str) -> bool:
+    """Detect structured text logs: 'TIMESTAMP [TOOL_ID] SEV: message | k=v'."""
+    # Pattern: ISO timestamp followed by bracketed identifier
+    text_re = re.compile(
+        r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}\s+\[", re.MULTILINE
+    )
+    lines = [l for l in content[:2000].splitlines() if l.strip() and not l.startswith("#")]
+    if not lines:
+        return False
+    matches = sum(1 for l in lines[:10] if text_re.match(l))
+    return matches >= 2
