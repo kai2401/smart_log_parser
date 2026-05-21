@@ -8,7 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 import config
-from parser import parse_log
+from parser import parse_log, is_valid_log_file
 from database import db
 from llm import analyzer
 from synthetic.generator import generate_sample_files
@@ -16,6 +16,7 @@ import streamlit.components.v1
 import re
 import time
 import uuid
+import json
 
 from worker import start_background_parsing
 
@@ -23,145 +24,6 @@ import sys
 import os
 
 sys.path.insert(0, os.path.dirname(__file__))
-
-
-def is_valid_log_file(file_bytes: bytes, filename: str) -> bool:
-    """
-    Validates if the uploaded file is a plausible semiconductor fab log.
-    Rejects: emoji/ASCII-art files, non-log binaries, and content
-    with zero relevance to equipment/process logging.
-    """
-    filename_lower = filename.lower()
-
-    # 1. Hard rejection of explicit non-log binaries and documents
-    invalid_extensions = [
-        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".svg", ".ico",
-        ".pdf", ".docx", ".xlsx", ".pptx",
-        ".exe", ".dll", ".msi",
-        ".zip", ".tar", ".gz", ".7z", ".rar",
-        ".mp3", ".mp4", ".avi", ".mov", ".wav",
-    ]
-    if any(filename_lower.endswith(ext) for ext in invalid_extensions):
-        return False
-
-    # 2. Fast-pass for standard and known proprietary extensions
-    valid_extensions = [
-        ".log", ".txt", ".csv", ".json", ".xml", ".tsv",
-        ".bin", ".dat", ".raw", ".prc", ".parquet",
-    ]
-    has_valid_ext = any(filename_lower.endswith(ext) for ext in valid_extensions)
-
-    # 3. Content heuristics (evaluate first 1024 bytes for quick checks)
-    sample_bytes = file_bytes[:1024]
-
-    # Heuristic A: Binary payload detection
-    # Proprietary fab formats often contain null bytes.
-    if b"\x00" in sample_bytes:
-        return True
-
-    # 4. Text-based heuristics
-    sample_text = sample_bytes.decode("utf-8", errors="ignore")
-
-    # Heuristic B: Emoji rejection (very low threshold — fab logs should have none)
-    emoji_pattern = re.compile("[\U00010000-\U0010ffff]", flags=re.UNICODE)
-    emoji_count = len(emoji_pattern.findall(sample_text))
-    if emoji_count > 2:
-        return False
-
-    # Heuristic C: Common emoji shortcodes / emoticons in text
-    emoticon_pattern = re.compile(
-        r"[:;]['\-]?[)(DPp/\\|]|[<>]3|xD|XD|\bლ\b|¯\\?_\(ツ\)_/¯|"
-        r"[\U0000231A-\U0000232A]|[\U000023E9-\U000023F3]|[\U000025AA-\U000025AB]|"
-        r"[\U00002600-\U000027BF]|[\U0000FE00-\U0000FE0F]|[\U0001F000-\U0001FAFF]",
-        re.UNICODE,
-    )
-    if len(emoticon_pattern.findall(sample_text)) > 5:
-        return False
-
-    # Heuristic D: ASCII art / decorative text detection
-    # Reject files with heavy box-drawing, repeated decorative characters, or figlet-style art
-    ascii_art_indicators = [
-        r"[═║╔╗╚╝╠╣╦╩╬]{3,}",              # box-drawing characters
-        r"[─│┌┐└┘├┤┬┴┼]{5,}",              # light box-drawing
-        r"[*#=\-~_]{10,}",                   # long decorative lines (10+ chars)
-        r"[/\\|]{5,}",                        # repeated slashes (art patterns)
-        r"(?:\.{5,}\s*){2,}",                # dot leaders / art
-        r"[░▒▓█]{3,}",                       # block elements
-        r"[♠♣♥♦★☆●○◆◇]{3,}",               # decorative symbols
-        r"(?:\^[_v]\^|\(╯°□°\)╯|ʕ•ᴥ•ʔ)",    # kaomoji / text faces
-    ]
-    ascii_art_hits = sum(
-        1 for pat in ascii_art_indicators
-        if re.search(pat, sample_text)
-    )
-    if ascii_art_hits >= 2:
-        return False
-
-    # 5. Semiconductor fab relevance gate
-    # Scan a larger sample (up to 4 KB) for domain-specific keywords.
-    # Files with ZERO fab-relevant terms are rejected as unrelated content.
-    extended_text = file_bytes[:4096].decode("utf-8", errors="ignore").lower()
-
-    fab_keywords = [
-        # Equipment & tools
-        r"\btool[_\s]?id\b", r"\bmachine[_\s]?id\b", r"\bequip", r"\bchamber\b",
-        r"\bdevice[_\s]?id\b", r"\bhost\b",
-        # Process
-        r"\bwafer\b", r"\blot[_\s]?id\b", r"\brecipe\b", r"\bsetpoint\b",
-        r"\bprocess[_\s]?(step|stage|phase)\b", r"\betch\b", r"\bdeposit\b",
-        r"\banneal\b", r"\bclean\b", r"\bsputt", r"\bcvd\b", r"\bpvd\b",
-        # Sensors / parameters
-        r"\bpressure\b", r"\btemperature\b", r"\bflow[_\s]?rate\b", r"\bvacuum\b",
-        r"\brf[_\s]?power\b", r"\btorr\b", r"\brpm\b", r"\bsccm\b",
-        r"\bvoltage\b", r"\bcurrent\b", r"\bpower\b",
-        # Log severity / events
-        r"\b(info|warn|error|critical|debug|fault|alarm)\b",
-        r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}",  # ISO timestamp
-        r"\btimestamp\b", r"\bseverity\b", r"\blog[_\s]?(type|level)\b",
-        # Fab-specific
-        r"\bpm\b", r"\bmaintenan", r"\bcalibrat", r"\bsensor\b",
-        r"\bsubstrate\b", r"\bfoup\b", r"\bloadlock\b", r"\bendpoint\b",
-    ]
-
-    fab_hits = sum(
-        1 for kw in fab_keywords
-        if re.search(kw, extended_text)
-    )
-
-    # Require at least 2 fab-relevant keyword matches
-    if fab_hits < 2:
-        # Last chance: if it has a valid log extension AND structured data markers,
-        # allow it (could be a generic structured log from fab equipment)
-        if has_valid_ext:
-            log_markers = [
-                r"\d{4}-\d{2}-\d{2}",
-                r"\{.*\}",
-                r"<.*>",
-                r"ERROR|INFO|WARN|DEBUG",
-                r"0x[0-9a-fA-F]+",
-                r"\[.*\]",
-            ]
-            if any(re.search(m, sample_text, re.IGNORECASE) for m in log_markers):
-                return True
-        return False
-
-    # Heuristic F: Look for common log markers if no valid extension is present
-    if not has_valid_ext:
-        log_markers = [
-            r"\d{4}-\d{2}-\d{2}",
-            r"\{.*\}",
-            r"<.*>",
-            r"ERROR|INFO|WARN|DEBUG|FAULT",
-            r"0x[0-9a-fA-F]+",
-            r"\[.*\]",
-        ]
-        if not any(
-            re.search(marker, sample_text, re.IGNORECASE) for marker in log_markers
-        ):
-            if not re.search(r"\d", sample_text):
-                return False
-
-    return True
 
 # ---------------------------------------------------------------------------
 # Page config
@@ -390,7 +252,19 @@ with st.sidebar:
         st.session_state.parsed_filenames = []
         st.session_state.last_filename = None
         st.session_state.chat_messages = []
+        st.session_state.pop("review_job_id", None)
         st.rerun()
+
+    # ── Format Templates ──────────────────────────────────────────────
+    templates = db.list_format_templates()
+    if templates:
+        with st.expander(f"📋 Saved Format Templates ({len(templates)})"):
+            for tmpl in templates:
+                col_t1, col_t2 = st.columns([3, 1])
+                col_t1.caption(f"**{tmpl['name']}**  ·  `{tmpl['file_signature']}`")
+                if col_t2.button("🗑️", key=f"del_tmpl_{tmpl['id']}"):
+                    db.delete_format_template(tmpl["id"])
+                    st.rerun()
 
     st.divider()
 
@@ -402,6 +276,12 @@ if "active_job_ids" not in st.session_state:
     st.session_state.active_job_ids = []
 if "processed_file_ids" not in st.session_state:
     st.session_state.processed_file_ids = set()
+if "review_job_id" not in st.session_state:
+    st.session_state.review_job_id = None
+if "review_filename" not in st.session_state:
+    st.session_state.review_filename = None
+if "review_content_bytes" not in st.session_state:
+    st.session_state.review_content_bytes = None
 
 if uploaded_files:
     for uploaded_file in uploaded_files:
@@ -422,6 +302,8 @@ if uploaded_files:
         st.session_state.active_job_ids.append(job_id)
         st.session_state.processed_file_ids.add(uploaded_file.file_id)
         st.session_state.chat_messages = []
+        # Stash content bytes for potential template saving later
+        st.session_state[f"content_bytes_{job_id}"] = content_bytes
 
 if st.session_state.active_job_ids:
     st.markdown("### ⚙️ Processing Batch Queue")
@@ -452,6 +334,17 @@ if st.session_state.active_job_ids:
             if filename not in st.session_state.parsed_filenames:
                 st.session_state.parsed_filenames.append(filename)
             jobs_to_remove.append(job_id)
+        elif status == "NEEDS_REVIEW":
+            st.warning(
+                f"🔍 **{filename}:** LLM-parsed {total_records or 0} records — **review required**"
+            )
+            if st.button(f"Open Review for {filename}", key=f"review_{job_id}"):
+                st.session_state.review_job_id = job_id
+                st.session_state.review_filename = filename
+                st.session_state.review_content_bytes = st.session_state.get(
+                    f"content_bytes_{job_id}"
+                )
+                st.rerun()
         elif status == "FAILED":
             st.error(f"❌ **{filename}:** Pipeline aborted - {error_msg}")
             jobs_to_remove.append(job_id)
@@ -539,14 +432,177 @@ if not df.empty and "parameter_value" in df.columns:
 # Tabs
 # ---------------------------------------------------------------------------
 
-tab1, tab2, tab3, tab4 = st.tabs(
-    [
-        "📋 Parsed Logs",
-        "📊 Analytics",
-        "🤖 AI Insights",
-        "📖 Schema Reference",
-    ]
-)
+# Determine which tabs to show
+_has_pending_review = st.session_state.review_job_id is not None
+_tab_names = [
+    "📋 Parsed Logs",
+    "📊 Analytics",
+    "🤖 AI Insights",
+    "📖 Schema Reference",
+]
+if _has_pending_review:
+    _tab_names.insert(0, "🔍 Review")
+
+_tabs = st.tabs(_tab_names)
+
+# Assign tabs dynamically
+if _has_pending_review:
+    tab_review, tab1, tab2, tab3, tab4 = _tabs
+else:
+    tab_review = None
+    tab1, tab2, tab3, tab4 = _tabs
+
+# ─────────────────────── TAB 0: Review (HITL) ──────────────────────────────
+if tab_review is not None:
+    with tab_review:
+        review_job_id = st.session_state.review_job_id
+        review_filename = st.session_state.review_filename or "Unknown"
+
+        st.markdown(f"### 🔍 Review LLM-Parsed Records: `{review_filename}`")
+        st.caption(
+            "The LLM extracted the records below from an unknown format. "
+            "Review and correct field mappings before committing to the database."
+        )
+
+        pending = db.get_pending_reviews(review_job_id)
+
+        if not pending:
+            st.info("No pending records to review. This review may have already been completed.")
+            if st.button("Close Review"):
+                st.session_state.review_job_id = None
+                st.session_state.review_filename = None
+                st.rerun()
+        else:
+            # Build editable dataframe from pending records
+            schema_fields = [
+                "timestamp", "tool_id", "severity", "event_name",
+                "parameter_name", "parameter_value", "unit",
+                "wafer_id", "recipe_id", "process_stage", "log_type",
+                "raw_message",
+            ]
+
+            review_rows = []
+            for p in pending:
+                rec = p["record_data"]
+                # Try to extract metadata fields if stored as normalised entry
+                meta = {}
+                if "metadata" in rec and isinstance(rec["metadata"], str):
+                    try:
+                        meta = json.loads(rec["metadata"])
+                    except Exception:
+                        pass
+                row = {}
+                for field in schema_fields:
+                    row[field] = rec.get(field) or meta.get(field) or ""
+                row["_review_id"] = p["id"]
+                review_rows.append(row)
+
+            review_df = pd.DataFrame(review_rows)
+
+            # Show record count and severity breakdown
+            rc1, rc2, rc3 = st.columns(3)
+            rc1.metric("Records to Review", len(review_rows))
+            sev_counts = review_df["severity"].value_counts().to_dict()
+            rc2.metric("Unique Tools", review_df["tool_id"].nunique())
+            rc3.metric("Has Errors/Warnings",
+                       sum(1 for s in review_df["severity"] if s in ("ERROR", "WARNING", "CRITICAL")))
+
+            st.divider()
+
+            # Editable data table
+            st.markdown("#### ✏️ Edit Records")
+            st.caption("Edit cells directly. Changes are applied when you approve.")
+            display_fields = [f for f in schema_fields if f in review_df.columns]
+            edited_df = st.data_editor(
+                review_df[display_fields],
+                num_rows="fixed",
+                use_container_width=True,
+                height=400,
+                key="review_editor",
+            )
+
+            st.divider()
+
+            # Action buttons
+            act_col1, act_col2, act_col3 = st.columns([2, 2, 3])
+
+            with act_col1:
+                if st.button("✅ Approve & Store", type="primary", use_container_width=True):
+                    # Commit edited records to log_entries
+                    from parser.normalizer import normalise_record
+                    from parser.schema import LogEntry
+
+                    approved_entries = []
+                    for idx, row in edited_df.iterrows():
+                        raw_dict = row.to_dict()
+                        # Remove internal fields
+                        raw_dict.pop("_review_id", None)
+                        # Clean empty strings to None
+                        raw_dict = {k: (v if v != "" else None) for k, v in raw_dict.items()}
+                        try:
+                            normalised = normalise_record(
+                                raw_dict,
+                                source_format="llm_parsed",
+                                filename=review_filename,
+                            )
+                            entry = LogEntry(
+                                **{k: v for k, v in normalised.items()
+                                   if k in LogEntry.__dataclass_fields__}
+                            )
+                            approved_entries.append(entry)
+                        except Exception:
+                            pass
+
+                    n = db.insert_entries(approved_entries)
+                    db.reject_pending_reviews(review_job_id)  # clear pending
+                    db.update_job(review_job_id, status="COMPLETED", progress=100, total_records=n)
+
+                    # Update session state
+                    if review_filename not in st.session_state.parsed_filenames:
+                        st.session_state.parsed_filenames.append(review_filename)
+                    st.session_state.last_filename = review_filename
+                    st.session_state.review_job_id = None
+                    st.session_state.review_filename = None
+                    st.success(f"✅ Approved and stored {n} records.")
+                    time.sleep(0.5)
+                    st.rerun()
+
+            with act_col2:
+                if st.button("❌ Reject All", use_container_width=True):
+                    db.reject_pending_reviews(review_job_id)
+                    db.update_job(review_job_id, status="FAILED", progress=100,
+                                  error_message="Rejected by user", total_records=0)
+                    if review_job_id in st.session_state.active_job_ids:
+                        st.session_state.active_job_ids.remove(review_job_id)
+                    st.session_state.review_job_id = None
+                    st.session_state.review_filename = None
+                    st.warning("Records rejected and discarded.")
+                    time.sleep(0.5)
+                    st.rerun()
+
+            with act_col3:
+                with st.popover("💾 Save as Template", use_container_width=True):
+                    st.caption(
+                        "Save the current field mapping so files with the same format "
+                        "are auto-parsed next time — no LLM or review needed."
+                    )
+                    tmpl_name = st.text_input(
+                        "Template name",
+                        value=review_filename.rsplit(".", 1)[0] if review_filename else "Custom Format",
+                        key="tmpl_name_input",
+                    )
+                    if st.button("Save Template", key="save_tmpl_btn"):
+                        content_bytes = st.session_state.review_content_bytes
+                        if content_bytes:
+                            sig = db.compute_file_signature(content_bytes, review_filename)
+                            # Build field mapping from the first record
+                            first_rec = review_rows[0] if review_rows else {}
+                            mapping = {k: k for k in schema_fields if first_rec.get(k)}
+                            preview = content_bytes[:500].decode("utf-8", errors="replace")
+                            db.save_format_template(tmpl_name, sig, mapping, preview)
+                            st.success(f"✅ Template '{tmpl_name}' saved!")
+                        else:
+                            st.error("Cannot save template — file content not available.")
 
 # ─────────────────────── TAB 1: Parsed Logs ────────────────────────────────
 with tab1:

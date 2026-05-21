@@ -5,4 +5,5 @@ from parser.parsers import (
     kv_parser,
     syslog_parser,
     text_parser,
+    llm_parser,
 )

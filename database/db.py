@@ -4,7 +4,9 @@ Database layer: SQLite storage for parsed LogEntry and RecipeEntry records.
 
 import sqlite3
 import json
+import hashlib
 from typing import Any
+from datetime import datetime
 from parser.schema import LogEntry, RecipeEntry
 import config
 
@@ -49,11 +51,35 @@ CREATE TABLE IF NOT EXISTS processing_jobs (
 );
 """
 
+CREATE_PENDING_REVIEWS_SQL = """
+CREATE TABLE IF NOT EXISTS pending_reviews (
+    id              TEXT PRIMARY KEY,
+    job_id          TEXT NOT NULL,
+    filename        TEXT NOT NULL,
+    record_data     TEXT NOT NULL,
+    field_mapping   TEXT,
+    approved        INTEGER DEFAULT 0
+);
+"""
+
+CREATE_FORMAT_TEMPLATES_SQL = """
+CREATE TABLE IF NOT EXISTS format_templates (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    file_signature  TEXT UNIQUE,
+    field_mapping   TEXT NOT NULL,
+    sample_preview  TEXT,
+    created_at      TEXT
+);
+"""
+
 INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_timestamp  ON log_entries(timestamp);",
     "CREATE INDEX IF NOT EXISTS idx_tool_id    ON log_entries(tool_id);",
     "CREATE INDEX IF NOT EXISTS idx_severity   ON log_entries(severity);",
     "CREATE INDEX IF NOT EXISTS idx_recipe_tool ON recipe_entries(tool_id);",
+    "CREATE INDEX IF NOT EXISTS idx_pending_job ON pending_reviews(job_id);",
+    "CREATE INDEX IF NOT EXISTS idx_template_sig ON format_templates(file_signature);",
 ]
 
 
@@ -68,6 +94,8 @@ def init_db() -> None:
         conn.execute(CREATE_LOG_SQL)
         conn.execute(CREATE_RECIPE_SQL)
         conn.execute(CREATE_JOBS_SQL)
+        conn.execute(CREATE_PENDING_REVIEWS_SQL)
+        conn.execute(CREATE_FORMAT_TEMPLATES_SQL)
         _ensure_column(conn, "log_entries", "metadata", "TEXT")
         for idx in INDEX_SQL:
             conn.execute(idx)
@@ -301,6 +329,7 @@ def clear_all() -> None:
     with _get_conn() as conn:
         conn.execute("DELETE FROM log_entries")
         conn.execute("DELETE FROM recipe_entries")
+        conn.execute("DELETE FROM pending_reviews")
         conn.commit()
 
 
@@ -346,4 +375,162 @@ def get_job(job_id: str) -> dict | None:
             (job_id,),
         ).fetchone()
     return dict(row) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Pending reviews (human-in-the-loop)
+# ---------------------------------------------------------------------------
+
+def insert_pending_reviews(
+    job_id: str,
+    filename: str,
+    records: list[dict],
+) -> int:
+    """Stage LLM-parsed records for human review. Returns count inserted."""
+    import uuid as _uuid
+    rows = []
+    for rec in records:
+        rows.append((
+            str(_uuid.uuid4()),
+            job_id,
+            filename,
+            json.dumps(rec, default=str),
+            None,
+            0,
+        ))
+    with _get_conn() as conn:
+        conn.executemany(
+            "INSERT OR IGNORE INTO pending_reviews (id, job_id, filename, record_data, field_mapping, approved) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+        conn.commit()
+    return len(rows)
+
+
+def get_pending_reviews(job_id: str) -> list[dict]:
+    """Get all pending review records for a job."""
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM pending_reviews WHERE job_id = ? ORDER BY rowid",
+            (job_id,),
+        ).fetchall()
+    results = []
+    for r in rows:
+        d = dict(r)
+        d["record_data"] = json.loads(d["record_data"]) if d["record_data"] else {}
+        if d.get("field_mapping"):
+            d["field_mapping"] = json.loads(d["field_mapping"])
+        results.append(d)
+    return results
+
+
+def update_pending_record(record_id: str, record_data: dict) -> None:
+    """Update a single pending review record (after user edits)."""
+    with _get_conn() as conn:
+        conn.execute(
+            "UPDATE pending_reviews SET record_data = ? WHERE id = ?",
+            (json.dumps(record_data, default=str), record_id),
+        )
+        conn.commit()
+
+
+def approve_pending_reviews(job_id: str) -> list[dict]:
+    """
+    Return all pending records for a job so the caller can normalise
+    and insert them into log_entries. Then delete from pending.
+    """
+    reviews = get_pending_reviews(job_id)
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM pending_reviews WHERE job_id = ?", (job_id,))
+        conn.commit()
+    return reviews
+
+
+def reject_pending_reviews(job_id: str) -> None:
+    """Discard all pending records for a job."""
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM pending_reviews WHERE job_id = ?", (job_id,))
+        conn.commit()
+
+
+def count_pending_reviews(job_id: str) -> int:
+    """Count pending review records for a job."""
+    with _get_conn() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM pending_reviews WHERE job_id = ?", (job_id,)
+        ).fetchone()[0]
+
+
+# ---------------------------------------------------------------------------
+# Format templates (reusable field mappings)
+# ---------------------------------------------------------------------------
+
+def compute_file_signature(content_bytes: bytes, filename: str) -> str:
+    """Compute a signature for matching format templates."""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "unknown"
+    content_hash = hashlib.md5(content_bytes[:4096]).hexdigest()[:12]
+    return f"{ext}:{content_hash}"
+
+
+def save_format_template(
+    name: str,
+    file_signature: str,
+    field_mapping: dict,
+    sample_preview: str = "",
+) -> str:
+    """Save a reusable format template. Returns the template ID."""
+    import uuid as _uuid
+    template_id = str(_uuid.uuid4())
+    with _get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO format_templates "
+            "(id, name, file_signature, field_mapping, sample_preview, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                template_id,
+                name,
+                file_signature,
+                json.dumps(field_mapping, default=str),
+                sample_preview[:500],
+                datetime.now().isoformat(),
+            ),
+        )
+        conn.commit()
+    return template_id
+
+
+def get_format_template(file_signature: str) -> dict | None:
+    """Look up a format template by file signature."""
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM format_templates WHERE file_signature = ?",
+            (file_signature,),
+        ).fetchone()
+    if not row:
+        return None
+    d = dict(row)
+    d["field_mapping"] = json.loads(d["field_mapping"]) if d["field_mapping"] else {}
+    return d
+
+
+def list_format_templates() -> list[dict]:
+    """List all saved format templates."""
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM format_templates ORDER BY created_at DESC"
+        ).fetchall()
+    results = []
+    for r in rows:
+        d = dict(r)
+        d["field_mapping"] = json.loads(d["field_mapping"]) if d["field_mapping"] else {}
+        results.append(d)
+    return results
+
+
+def delete_format_template(template_id: str) -> None:
+    """Delete a format template."""
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM format_templates WHERE id = ?", (template_id,))
+        conn.commit()
 

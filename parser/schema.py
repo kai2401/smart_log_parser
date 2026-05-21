@@ -23,7 +23,7 @@ class LogEntry:
     metadata: str = "{}"
 
     # --- source ---
-    source_format: Optional[str] = None  # json | csv | xml | syslog | text | kv
+    source_format: Optional[str] = None  # json | csv | xml | syslog | text | kv | llm_parsed | universal
     source_filename: Optional[str] = None
 
     # --- LLM outputs (populated after analysis) ---

@@ -308,7 +308,7 @@ def normalise_record(
     metadata: dict[str, Any] = {}
 
     # 2. Strict Bypass Logic
-    STRUCTURED_FORMATS = {"json", "xml", "csv", "parquet"}
+    STRUCTURED_FORMATS = {"json", "xml", "csv", "parquet", "llm_parsed", "universal"}
 
     if source_format in STRUCTURED_FORMATS:
         # ── STRUCTURED PATH: full alias-based field extraction ─────────
@@ -473,6 +473,18 @@ def normalise_record(
             out["tool_id"] = filename.rsplit(".", 1)[0] if "." in filename else filename
             if not out["tool_id"]:
                 out["tool_id"] = "UNKNOWN_TOOL"
+
+        # Build normalized_message for display consistency
+        parts = [f"[{out['tool_id']}]", f"{out['severity']}:"]
+        event = metadata.get("event_name", "")
+        if event:
+            parts.append(str(event))
+        pname = metadata.get("parameter_name")
+        pval = metadata.get("parameter_value")
+        if pname and pval is not None:
+            unit = metadata.get("unit", "")
+            parts.append(f"| {pname}={pval}{unit}")
+        metadata["normalized_message"] = " ".join(parts)
 
     # 3. Execute Drain3 Template Mining (both paths)
     if _template_miner is not None:
