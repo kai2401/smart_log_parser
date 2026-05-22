@@ -47,132 +47,186 @@ st.set_page_config(
 st.markdown(
     """
 <style>
-@import url\
-    ('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* Base Typography */
 html, body, [class*="css"], .stMarkdown { font-family: 'Inter', sans-serif !important; }
-.stApp { background-color: #0d1117; color: #c9d1d9; }
+.stApp { background-color: #09090b; color: #ededed; }
 
 /* Headers */
-h1, h2, h3, h4, h5, h6 { font-family: 'Inter', sans-serif !important; font-weight: 600 !important; \
-    color: #e6edf3; letter-spacing: -0.01em; }
-h1 { font-weight: 700 !important; letter-spacing: -0.02em; }
+h1, h2, h3, h4, h5, h6 { 
+    font-family: 'Inter', sans-serif !important; 
+    font-weight: 600 !important; 
+    color: #ffffff; 
+    letter-spacing: -0.02em; 
+}
+h1 { font-weight: 700 !important; letter-spacing: -0.03em; }
 
 /* Sidebar */
 section[data-testid="stSidebar"] {
-    background-color: #161b22;
-    border-right: 1px solid #30363d;
+    background-color: #111113;
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
 }
 
-/* Metric cards */
+/* Metric cards (Linear-style) */
 [data-testid="metric-container"] {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 10px;
-    padding: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    background: linear-gradient(145deg, #16161a 0%, #0d0d12 100%);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 [data-testid="metric-container"]:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+    transform: translateY(-4px);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.2), 0 4px 6px -2px rgba(0, 0, 0, 0.1);
 }
-[data-testid="metric-container"] label { color: #8b949e !important; font-size: 0.8rem !important; \
-font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
-[data-testid="stMetricValue"] { color: #58a6ff !important; font-family: 'JetBrains Mono', \
-monospace !important; font-size: 2.2rem !important; font-weight: 600; }
+[data-testid="metric-container"] label { 
+    color: #a1a1aa !important; 
+    font-size: 0.85rem !important; 
+    font-weight: 500; 
+    margin-bottom: 8px; 
+}
+[data-testid="stMetricValue"] { 
+    color: #f8fafc !important; 
+    font-family: 'JetBrains Mono', monospace !important; 
+    font-size: 2.4rem !important; 
+    font-weight: 600; 
+    background: -webkit-linear-gradient(45deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
 
-/* Dataframe */
-[data-testid="stDataFrame"] { border: 1px solid #30363d; border-radius: 8px; overflow: hidden; }
-[data-testid="stDataFrame"] > div { border-radius: 8px; }
+/* Dataframe & Expanders */
+[data-testid="stDataFrame"], [data-testid="stExpander"] { 
+    border: 1px solid rgba(255, 255, 255, 0.08); 
+    border-radius: 10px; 
+    background-color: #121214;
+}
 
 /* Buttons */
 .stButton > button {
-    background: #21262d;
-    color: #c9d1d9;
-    border: 1px solid #30363d;
-    border-radius: 6px;
+    background: #18181b;
+    color: #e4e4e7;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
     font-weight: 500;
-    transition: all 0.2s ease;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
-.stButton > button:hover { background: #30363d; border-color: #8b949e; color: #ffffff; }
+.stButton > button:hover { 
+    background: #27272a; 
+    border-color: rgba(255, 255, 255, 0.2); 
+    transform: scale(1.02);
+}
 
-/* Primary button (Quick Actions / Highlights) */
+/* Primary button */
 .stButton > button[kind="primary"] {
-    background: #238636;
+    background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
     color: #ffffff;
-    border: 1px solid rgba(240, 246, 252, 0.1);
+    border: none;
+    box-shadow: 0 4px 14px 0 rgba(139, 92, 246, 0.39);
 }
 .stButton > button[kind="primary"]:hover {
-    background: #2ea043;
-    border-color: rgba(240, 246, 252, 0.1);
+    background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+    box-shadow: 0 6px 20px 0 rgba(139, 92, 246, 0.5);
+    transform: translateY(-1px) scale(1.02);
 }
 
 /* Tab styling */
-[data-baseweb="tab-list"] { gap: 8px; border-bottom: 1px solid #30363d !important; }
+[data-baseweb="tab-list"] { 
+    gap: 16px; 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important; 
+}
 [data-baseweb="tab"] {
     background: transparent;
-    color: #8b949e;
-    border-radius: 6px 6px 0 0;
-    font-size: 0.9rem;
+    color: #a1a1aa;
+    font-size: 0.95rem;
     font-weight: 500;
-    padding-top: 12px;
-    padding-bottom: 12px;
+    padding-top: 16px;
+    padding-bottom: 16px;
+    border: none !important;
+    transition: color 0.2s ease;
 }
-[aria-selected="true"][data-baseweb="tab"] { background: #161b22 !important; \
-color: #e6edf3 !important; border-bottom: 2px solid #58a6ff !important; }
+[data-baseweb="tab"]:hover {
+    color: #e4e4e7;
+}
+[aria-selected="true"][data-baseweb="tab"] { 
+    background: transparent !important; 
+    color: #ffffff !important; 
+    border-bottom: 2px solid #8b5cf6 !important; 
+}
 
 /* File uploader */
 [data-testid="stFileUploader"] {
-    border: 1px dashed #30363d;
-    border-radius: 8px;
-    padding: 16px;
-    background: #0d1117;
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.02);
+    transition: all 0.2s ease;
+}
+[data-testid="stFileUploader"]:hover {
+    border-color: #8b5cf6;
+    background: rgba(139, 92, 246, 0.05);
 }
 
 /* Code/mono text */
-code { font-family: 'JetBrains Mono', monospace !important; background: #161b22; \
-padding: 3px 6px; border-radius: 4px; font-size: 0.85rem; color: #79c0ff; \
-border: 1px solid #30363d; }
+code { 
+    font-family: 'JetBrains Mono', monospace !important; 
+    background: rgba(255, 255, 255, 0.05); 
+    padding: 4px 8px; 
+    border-radius: 6px; 
+    font-size: 0.85rem; 
+    color: #a78bfa; 
+    border: 1px solid rgba(255, 255, 255, 0.05); 
+}
 
 /* Alert boxes */
-.stAlert { border-radius: 8px; border: 1px solid #30363d; }
+.stAlert { 
+    border-radius: 10px; 
+    border: 1px solid rgba(255, 255, 255, 0.05); 
+}
 
 /* Divider */
-hr { border-color: #30363d; margin: 1.5rem 0; }
+hr { border-color: rgba(255, 255, 255, 0.08); margin: 2rem 0; }
 
 /* Inputs */
 .stSelectbox > div > div, .stTextInput > div > input, [data-testid="stChatInput"] {
-    background: #161b22 !important;
-    border: 1px solid #30363d !important;
-    color: #c9d1d9 !important;
-    border-radius: 6px !important;
+    background: #18181b !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #e4e4e7 !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease;
 }
-.stSelectbox > div > div:focus-within, .stTextInput > div > input:focus, \
+.stSelectbox > div > div:focus-within, .stTextInput > div > input:focus, 
     [data-testid="stChatInput"]:focus-within {
-    border-color: #58a6ff !important;
-    box-shadow: 0 0 0 1px #58a6ff !important;
+    border-color: #8b5cf6 !important;
+    box-shadow: 0 0 0 1px #8b5cf6 !important;
 }
 
 /* Chat message bubbles */
-[data-testid="stChatMessage"] { background-color: transparent; }
+[data-testid="stChatMessage"] { 
+    background-color: rgba(255, 255, 255, 0.02); 
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
 
 /* Typing indicator */
 .typing-indicator {
   display: inline-flex;
   align-items: center;
-  padding: 12px 8px;
-  background: #161b22;
-  border-radius: 8px;
-  border: 1px solid #30363d;
+  padding: 12px 16px;
+  background: #18181b;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
   width: fit-content;
 }
 .typing-indicator span {
   display: inline-block;
   width: 6px;
   height: 6px;
-  background-color: #8b949e;
+  background-color: #a1a1aa;
   border-radius: 50%;
   margin: 0 4px;
   animation: typing 1.4s infinite ease-in-out both;
@@ -369,7 +423,7 @@ if st.session_state.active_job_ids:
 # Header
 col_h1, col_h2 = st.columns([3, 1])
 with col_h1:
-    st.markdown("# ⚙️ Smart Tool Log Parser")
+    st.markdown("# Smart Tool Log Parser")
     st.caption("Semiconductor Equipment Log Intelligence Platform")
 with col_h2:
     active_file = st.session_state.last_filename
@@ -527,7 +581,7 @@ if tab_review is not None:
             edited_df = st.data_editor(
                 review_df[display_fields],
                 num_rows="fixed",
-                use_container_width=True,
+                width="stretch",
                 height=400,
                 key="review_editor",
             )
@@ -538,7 +592,7 @@ if tab_review is not None:
             act_col1, act_col2, act_col3 = st.columns([2, 2, 3])
 
             with act_col1:
-                if st.button("✅ Approve & Store", type="primary", use_container_width=True):
+                if st.button("✅ Approve & Store", type="primary", width="stretch"):
                     # Commit edited records to log_entries
                     from parser.normalizer import normalise_record
                     from parser.schema import LogEntry
@@ -579,7 +633,7 @@ if tab_review is not None:
                     st.rerun()
 
             with act_col2:
-                if st.button("❌ Reject All", use_container_width=True):
+                if st.button("❌ Reject All", width="stretch"):
                     db.reject_pending_reviews(review_job_id)
                     db.update_job(review_job_id, status="FAILED", progress=100,
                                   error_message="Rejected by user", total_records=0)
@@ -592,7 +646,7 @@ if tab_review is not None:
                     st.rerun()
 
             with act_col3:
-                with st.popover("💾 Save as Template", use_container_width=True):
+                with st.popover("💾 Save as Template", width="stretch"):
                     st.caption(
                         "Save the current field mapping so files with the same format "
                         "are auto-parsed next time — no LLM or review needed."
@@ -1049,7 +1103,7 @@ with tab3:
         if st.button(
             "Generate Shift Summary Report",
             type="primary",
-            use_container_width=True,
+            width="stretch",
         ):
             with st.spinner("Aggregating metrics and generating executive summary..."):
                 with db._get_conn() as conn:
@@ -1312,6 +1366,6 @@ with tab5:
         # Display data table
         st.dataframe(
             live_df[display_columns],
-            use_container_width=True,
+            width="stretch",
             hide_index=True
         )
