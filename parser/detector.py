@@ -107,9 +107,9 @@ def _looks_like_text_log(content: str) -> bool:
     # Pattern: ISO timestamp followed by bracketed identifier
     text_re = re.compile(r"^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}\s+\[", re.MULTILINE)
     lines = [
-        l for l in content[:2000].splitlines() if l.strip() and not l.startswith("#")
+        line for line in content[:2000].splitlines() if line.strip() and not line.startswith("#")
     ]
     if not lines:
         return False
-    matches = sum(1 for l in lines[:10] if text_re.match(l))
+    matches = sum(1 for line in lines[:10] if text_re.match(line))
     return matches >= 2

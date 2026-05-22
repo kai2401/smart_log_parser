@@ -261,13 +261,18 @@ class GuardedChatResponse(BaseModel):
     assistant_reply: str
 
 
-GUARDED_CHAT_SYSTEM = """You are a highly capable AI assistant for a semiconductor data parsing platform.
-A user has uploaded a log file. You are provided with statistics and a sample of the parsed log data as context.
+GUARDED_CHAT_SYSTEM = """
+You are a highly capable AI assistant for a semiconductor data parsing platform.
+A user has uploaded a log file. You are provided with statistics and a sample of the parsed log data
+as context.
 
 GUARDRAIL DIRECTIVES:
-1. Domain Restriction: You must ONLY answer questions related to semiconductor manufacturing, equipment logs, systems analysis, or data parsing.
-2. If the query falls outside this domain, set 'is_domain_relevant' to false, state the 'rejection_reason', and leave 'assistant_reply' empty.
-3. If the query is relevant, set 'is_domain_relevant' to true, leave 'rejection_reason' null, and provide your analysis in 'assistant_reply'. Format the reply using markdown.
+1. Domain Restriction: You must ONLY answer questions related to semiconductor manufacturing,
+   equipment logs, systems analysis, or data parsing.
+2. If the query falls outside this domain, set 'is_domain_relevant' to false, state the
+   'rejection_reason', and leave 'assistant_reply' empty.
+3. If the query is relevant, set 'is_domain_relevant' to true, leave 'rejection_reason' null,
+   and provide your analysis in 'assistant_reply'. Format the reply using markdown.
 """
 
 
@@ -284,7 +289,10 @@ def chat_with_logs(
     if not client:
         return "⚠️ OpenAI API key not configured. Please add it to your .env file."
 
-    context_msg = f"CONTEXT:\nStats: {json.dumps(stats)}\nSample Data: {json.dumps(sample_entries[:20])}"
+    context_msg = (
+        f"CONTEXT:\nStats: {json.dumps(stats)}"
+        f"\nSample Data: {json.dumps(sample_entries[:20])}"
+    )
 
     llm_messages = [
         {"role": "system", "content": GUARDED_CHAT_SYSTEM},

@@ -1,4 +1,4 @@
-from parser.parsers import (
+from parser.parsers import (  # noqa: F401
     json_parser,
     csv_parser,
     xml_parser,

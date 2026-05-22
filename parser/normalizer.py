@@ -5,6 +5,7 @@ Best-effort approach: missing timestamps default to now(), missing tool_id defau
 to the filename stem. No field absence will crash the pipeline.
 """
 
+import json
 import re
 from datetime import datetime
 from typing import Any
@@ -205,6 +206,12 @@ PARAM_ALIAS_MAP = {
 # Log-type classification
 # ---------------------------------------------------------------------------
 
+_PARAM_RE = re.compile(
+    r"(?P<pname>Pressure|Temperature|Flow|Voltage|Current|Speed|RPM|Power|Step|Humidity)"
+    r"\s*[=:]\s*(?P<pval>-?\d+(?:\.\d+)?)\s*(?P<punit>Torr|RPM|C|%|V|A|W)?",
+    re.IGNORECASE,
+)
+
 LOG_TYPE_PATTERNS = {
     "alarm": r"alarm|fault|error|fail|critical|emergency",
     "sensor_reading": r"sensor|reading|measur|temperat|pressure|flow|voltage|current",
@@ -274,9 +281,6 @@ def _safe_float(val: Any) -> float | None:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
-
-
-import json
 
 
 def normalise_record(
@@ -427,11 +431,7 @@ def normalise_record(
                 out["tool_id"] = tool_match.group(1)
 
         if not metadata.get("parameter_name"):
-            param_match = re.search(
-                r"(?P<pname>Pressure|Temperature|Flow|Voltage|Current|Speed|RPM|Power|Step|Humidity)\s*[=:]\s*(?P<pval>-?\d+(?:\.\d+)?)\s*(?P<punit>Torr|RPM|C|%|V|A|W)?",
-                metadata.get("event_name", ""),
-                re.IGNORECASE,
-            )
+            param_match = _PARAM_RE.search(metadata.get("event_name", ""))
             if param_match:
                 metadata["parameter_name"] = _normalise_param_name(
                     param_match.group("pname")

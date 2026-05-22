@@ -7,9 +7,9 @@ import paho.mqtt.client as mqtt
 # Ensure the project root is in the path so we can import parser and database
 sys.path.insert(0, os.path.dirname(__file__))
 
-from database import db
-from parser import parse_log
-import config
+from database import db  # noqa: E402
+from parser import parse_log  # noqa: E402
+import config  # noqa: E402
 
 logger = logging.getLogger("mqtt_server")
 

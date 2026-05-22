@@ -1114,7 +1114,8 @@ with tab2:
                            json_extract(metadata, '$.parameter_name') as parameter_name,
                            json_extract(metadata, '$.parameter_value') as parameter_value,
                            json_extract(metadata, '$.unit') as unit,
-                           COALESCE(json_extract(metadata, '$.event_name'), raw_message) as event_name,
+                           COALESCE(json_extract(metadata, '$.event_name'),
+                               raw_message) as event_name,
                            drain_cluster_id,
                            raw_message
                     FROM log_entries
@@ -1185,7 +1186,8 @@ with tab3:
                 with db._get_conn() as conn:
                     anomalies = pd.read_sql_query(
                         """
-                        SELECT COALESCE(json_extract(metadata, '$.event_name'), raw_message) as event_name,
+                        SELECT COALESCE(json_extract(metadata, '$.event_name'),
+                               raw_message) as event_name,
                                COUNT(*) as freq
                         FROM log_entries
                         WHERE severity IN ('ERROR', 'CRITICAL') AND source_filename = ?
@@ -1427,7 +1429,8 @@ with tab5:
 
     if not mqtt_rows:
         st.info(
-            "No live MQTT logs found yet. Ensure the Mosquitto broker and `mqtt_server.py` are running, and the Pi is sending data."
+            "No live MQTT logs found yet. Ensure the Mosquitto broker "
+            "and `mqtt_server.py` are running, and the Pi is sending data."
         )
     else:
         live_df = pd.DataFrame(mqtt_rows)
@@ -1454,9 +1457,12 @@ with tab5:
 
         # Display latest entry prominently
         latest = live_df.iloc[0]
-        st.success(
-            f"**Latest Activity ({latest['timestamp']}):** [{latest['tool_id']}] {latest['severity']} - {latest.get('event_name', '')}"
+        activity = (
+            f"**Latest Activity ({latest['timestamp']}):**"
+            f" [{latest['tool_id']}] {latest['severity']}"
+            f" - {latest.get('event_name', '')}"
         )
+        st.success(activity)
 
         # Display data table
         st.dataframe(live_df[display_columns], width="stretch", hide_index=True)

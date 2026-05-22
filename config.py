@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -22,9 +24,6 @@ LLM_TIMEOUT_SECONDS = 30
 
 # Severity order (higher = worse)
 SEVERITY_ORDER = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3, "CRITICAL": 4}
-
-import logging
-import sys
 
 # Configure centralized logging
 logging.basicConfig(

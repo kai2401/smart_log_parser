@@ -21,12 +21,12 @@ import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-import logging
+import logging  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
-from database import db
-from parser import parse_log, is_valid_log_file
+from database import db  # noqa: E402
+from parser import parse_log, is_valid_log_file  # noqa: E402
 
 
 # ── ANSI colors for terminal output ────────────────────────────────────────
@@ -333,7 +333,10 @@ def cmd_analyze(args):
             messages = [
                 {
                     "role": "user",
-                    "content": "Summarise the overall health of these logs. Highlight critical issues, recurring patterns, and recommended actions.",
+                    "content": (
+                        "Summarise the overall health of these logs. "
+                        "Highlight critical issues, recurring patterns, and recommended actions."
+                    ),
                 }
             ]
             response = analyzer.chat_with_logs(messages, stats, rows[:30])
@@ -418,7 +421,8 @@ def cmd_generate(args):
     files = generate_sample_files(output_dir)
 
     print(
-        f"\n  {C.GREEN}✓{C.RESET} Generated {len(files)} sample files in {C.BOLD}{output_dir}/{C.RESET}"
+        f"\n  {C.GREEN}✓{C.RESET} Generated {len(files)} sample files "
+        f"in {C.BOLD}{output_dir}/{C.RESET}"
     )
 
     if args.ingest:

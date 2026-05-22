@@ -22,6 +22,7 @@ from parser.normalizer import (
 
 logger = logging.getLogger(__name__)
 
+
 def _api_key_available() -> bool:
     return bool(config.OPENAI_API_KEY)
 

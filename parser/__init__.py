@@ -1,6 +1,6 @@
 """
 Main parser pipeline — Smart Hybrid architecture:
-  raw content  →  guardrail check  →  deterministic dispatch  →  format parser  →  normaliser  →  [LogEntry|RecipeEntry]
+  raw content → guardrail check → deterministic dispatch → format parser → normaliser → LogEntry
 
 No LLM code-generation in the hot path. Deterministic, robust, and schema-adaptive.
 """
@@ -12,7 +12,7 @@ import pandas as pd
 
 from parser.detector import detect_format
 from parser.normalizer import normalise_record
-from parser.schema import LogEntry, RecipeEntry
+from parser.schema import LogEntry
 from parser.parsers import (
     json_parser,
     csv_parser,
@@ -362,8 +362,6 @@ def _detect_format_smart(
 
     # If the standard detector returned 'llm' (binary/unknown)
     if fmt == "llm":
-        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-
         # Binary files: check for NUL-byte content FIRST (before text KV)
         # Binary formats embed key=value strings that trick the text KV heuristic,
         # but the text KV parser can't handle binary framing (length prefixes, NUL seps).

@@ -11,8 +11,8 @@ import warnings
 warnings.filterwarnings("ignore", category=ResourceWarning)
 
 # Point DB_PATH to a temporary location before importing anything that might use it
-import config
-import database.db as db
+import config  # noqa: E402
+import database.db as db  # noqa: E402
 
 
 class TestCLI(unittest.TestCase):

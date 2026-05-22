@@ -11,7 +11,9 @@ TS_PATTERNS = [
 ]
 
 SEVERITY_RE = re.compile(
-    r"\b(?P<severity>DEBUG|DBG|INFO|INF|NOTICE|WARNING|WARN|WRN|ERROR|ERR|CRITICAL|CRIT|CRT|ALERT|FAULT|FAIL|FATAL)\b",
+    r"\b(?P<severity>"
+    r"DEBUG|DBG|INFO|INF|NOTICE|WARNING|WARN|WRN|ERROR|ERR"
+    r"|CRITICAL|CRIT|CRT|ALERT|FAULT|FAIL|FATAL)\b",
     re.IGNORECASE,
 )
 
@@ -139,7 +141,8 @@ def parse(content: str) -> Generator[dict, None, None]:
         event_text = re.sub(r"\[[A-Z0-9_\-]+\]", "", event_text)
         # Remove severity tag
         event_text = re.sub(
-            r"\b(?:DEBUG|DBG|INFO|INF|WARNING|WARN|WRN|ERROR|ERR|CRITICAL|CRIT|CRT|ALERT|FAULT|FAIL|FATAL)\b",
+            r"\b(?:DEBUG|DBG|INFO|INF|WARNING|WARN|WRN|ERROR|ERR"
+            r"|CRITICAL|CRIT|CRT|ALERT|FAULT|FAIL|FATAL)\b",
             "",
             event_text,
             flags=re.IGNORECASE,

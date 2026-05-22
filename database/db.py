@@ -217,7 +217,8 @@ def query_entries(
         params.append(source_filename)
     if search:
         conditions.append(
-            "(raw_message LIKE ? OR json_extract(metadata, '$.event_name') LIKE ? OR json_extract(metadata, '$.normalized_message') LIKE ?)"
+            "(raw_message LIKE ? OR json_extract(metadata, '$.event_name') LIKE ?"
+            " OR json_extract(metadata, '$.normalized_message') LIKE ?)"
         )
         pattern = f"%{search}%"
         params.extend([pattern, pattern, pattern])
@@ -288,27 +289,29 @@ def get_summary_stats(source_filename: str | None = None) -> dict:
     where = "WHERE source_filename = ?" if source_filename else ""
     params = [source_filename] if source_filename else []
 
+    conj = "AND" if where else "WHERE"
     with _get_conn() as conn:
         total = conn.execute(
             f"SELECT COUNT(*) FROM log_entries {where}", params
         ).fetchone()[0]
         alarms = conn.execute(
-            f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} log_type = 'alarm'",
+            f"SELECT COUNT(*) FROM log_entries {where} {conj} log_type = 'alarm'",
             params,
         ).fetchone()[0]
         errors = conn.execute(
-            f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} severity IN ('ERROR','CRITICAL')",
+            f"SELECT COUNT(*) FROM log_entries {where} {conj} severity IN ('ERROR','CRITICAL')",
             params,
         ).fetchone()[0]
         warnings_c = conn.execute(
-            f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} severity = 'WARNING'",
+            f"SELECT COUNT(*) FROM log_entries {where} {conj} severity = 'WARNING'",
             params,
         ).fetchone()[0]
         tools = conn.execute(
             f"SELECT COUNT(DISTINCT tool_id) FROM log_entries {where}", params
         ).fetchone()[0]
+        recipes_where = "WHERE source_filename = ?" if source_filename else ""
         recipes = conn.execute(
-            f"SELECT COUNT(*) FROM recipe_entries {'WHERE source_filename = ?' if source_filename else ''}",
+            f"SELECT COUNT(*) FROM recipe_entries {recipes_where}",
             [source_filename] if source_filename else [],
         ).fetchone()[0]
     return {
@@ -374,7 +377,8 @@ def delete_by_filename(filename: str) -> None:
 def create_job(job_id: str, filename: str) -> None:
     with _get_conn() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO processing_jobs (id, filename, status, progress) VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO processing_jobs"
+            " (id, filename, status, progress) VALUES (?, ?, ?, ?)",
             (job_id, filename, "PENDING", 0),
         )
         conn.commit()
@@ -402,7 +406,8 @@ def update_job(
 def get_job(job_id: str) -> dict | None:
     with _get_conn() as conn:
         row = conn.execute(
-            "SELECT id, filename, status, progress, error_message, total_records FROM processing_jobs WHERE id = ?",
+            "SELECT id, filename, status, progress, error_message, total_records"
+            " FROM processing_jobs WHERE id = ?",
             (job_id,),
         ).fetchone()
     return dict(row) if row else None
@@ -435,8 +440,9 @@ def insert_pending_reviews(
         )
     with _get_conn() as conn:
         conn.executemany(
-            "INSERT OR IGNORE INTO pending_reviews (id, job_id, filename, record_data, field_mapping, approved) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO pending_reviews"
+            " (id, job_id, filename, record_data, field_mapping, approved)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
             rows,
         )
         conn.commit()

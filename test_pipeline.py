@@ -65,7 +65,10 @@ def test_best_effort_defaults():
 
 def test_csv_parse():
     """CSV with headers should parse correctly."""
-    csv_data = b"timestamp,tool_id,severity,message\n2024-01-15T10:00:00,ETX03,ERROR,Pump fault detected"
+    csv_data = (
+        b"timestamp,tool_id,severity,message\n"
+        b"2024-01-15T10:00:00,ETX03,ERROR,Pump fault detected"
+    )
     entries, warnings = parse_log(csv_data, "logs.csv")
     assert len(entries) == 1
     e = entries[0]

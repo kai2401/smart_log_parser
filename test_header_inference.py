@@ -154,8 +154,6 @@ def test_no_api_key_returns_empty():
 # ---------------------------------------------------------------------------
 
 def test_invalid_canonical_fields_discarded():
-    from unittest.mock import patch
-
     fake_response = {
         "ts_utc": "timestamp",
         "equip_no": "tool_id",

@@ -46,7 +46,7 @@ for col in expected_unmapped:
 print("    PASS: All unmapped columns named in warning")
 
 # ── Check 4: Warning NOT emitted for mapped columns ──────
-print(f"\n[4] Checking mapped columns not reported as unmapped...")
+print("\n[4] Checking mapped columns not reported as unmapped...")
 mapped_cols = ["ts_utc", "equip_no", "lvl", "msg_body", "lot_no"]
 for col in mapped_cols:
     assert col not in warning_text, (
@@ -55,7 +55,7 @@ for col in mapped_cols:
 print("    PASS: Mapped columns not reported as unmapped")
 
 # ── Check 5: Unmapped columns stored in metadata ─────────
-print(f"\n[5] Checking unmapped columns stored in metadata...")
+print("\n[5] Checking unmapped columns stored in metadata...")
 e = entries[0]
 meta = json.loads(e.metadata)
 print(f"    Metadata keys: {list(meta.keys())}")
@@ -73,7 +73,7 @@ for col in expected_unmapped:
 print("    PASS: Unmapped columns stored in metadata")
 
 # ── Check 6: Unmapped values still preserved ─────────────
-print(f"\n[6] Checking unmapped column values still preserved...")
+print("\n[6] Checking unmapped column values still preserved...")
 assert "xrf_coeff_delta" in meta, (
     f"Expected raw value of xrf_coeff_delta in metadata, not found.\nMetadata: {meta}"
 )
@@ -81,7 +81,7 @@ print(f"    xrf_coeff_delta value: {meta.get('xrf_coeff_delta')}")
 print("    PASS: Unmapped column values preserved in metadata")
 
 # ── Check 7: Mapped fields correctly extracted ───────────
-print(f"\n[7] Checking mapped fields on entry...")
+print("\n[7] Checking mapped fields on entry...")
 assert e.tool_id == "ETCH-01", f"Expected ETCH-01, got '{e.tool_id}'"
 assert e.severity == "ERROR",  f"Expected ERROR, got '{e.severity}'"
 assert "2024-03-01" in e.timestamp
@@ -91,14 +91,14 @@ print(f"    timestamp : {e.timestamp}")
 print("    PASS: Mapped fields correctly extracted")
 
 # ── Check 8: Warning emitted only once, not per row ──────
-print(f"\n[8] Checking warning emitted once not per row...")
+print("\n[8] Checking warning emitted once not per row...")
 assert len(inference_warnings) == 1, (
     f"Expected 1 warning for 3 rows, got {len(inference_warnings)}"
 )
 print("    PASS: Warning deduplicated across rows")
 
 # ── Check 9: DB query for unmapped columns works ─────────
-print(f"\n[9] Checking DB query for unmapped columns...")
+print("\n[9] Checking DB query for unmapped columns...")
 with db._get_conn() as conn:
     result = conn.execute(
         """
