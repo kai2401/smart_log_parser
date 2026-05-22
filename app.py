@@ -13,11 +13,9 @@ from database import db
 from llm import analyzer
 from synthetic.generator import generate_sample_files
 import streamlit.components.v1
-import re
 import time
 import uuid
 import json
-from streamlit_autorefresh import st_autorefresh
 
 from worker import start_background_parsing
 
@@ -301,7 +299,10 @@ with st.sidebar:
                 st.success(f"✓ {n} rows stored")
                 if warnings:
                     for w in warnings[:5]:
-                        st.warning(w)
+                        if w.startswith("AI header inference"):
+                            st.info(f"ℹ️ {w}")
+                        else:
+                            st.warning(w)
 
     st.divider()
     st.markdown("### 🗄️ Database")
@@ -390,6 +391,10 @@ if st.session_state.active_job_ids:
             st.success(
                 f"✅ **{filename}:** Normalised and stored **{total_records or 0}** rows."
             )
+            inferred = db.get_header_mapping_by_filename(filename)
+            if inferred:
+                mapping_str = ", ".join(f"`{k}` → `{v}`" for k, v in inferred.items())
+                st.info(f"AI inferred column mappings for this file: {mapping_str}")
             st.session_state.last_filename = filename
             if filename not in st.session_state.parsed_filenames:
                 st.session_state.parsed_filenames.append(filename)
@@ -430,16 +435,20 @@ with col_h2:
     if active_file or st.session_state.parsed_filenames:
         display_name = active_file if active_file else "All Files"
         st.markdown(f"**Active view:** `{display_name}`")
-        
+
         all_opts = ["All Files"] + st.session_state.parsed_filenames
         current_opt = active_file if active_file else "All Files"
-        
+
         if len(st.session_state.parsed_filenames) > 1:
             selected_opt = st.selectbox(
-                "Switch file view", all_opts, index=all_opts.index(current_opt) if current_opt in all_opts else 0
+                "Switch file view",
+                all_opts,
+                index=all_opts.index(current_opt) if current_opt in all_opts else 0,
             )
             if selected_opt != current_opt:
-                st.session_state.last_filename = None if selected_opt == "All Files" else selected_opt
+                st.session_state.last_filename = (
+                    None if selected_opt == "All Files" else selected_opt
+                )
                 st.session_state.chat_messages = []  # clear chat on file switch
                 active_file = st.session_state.last_filename
 
@@ -532,7 +541,9 @@ if tab_review is not None:
         pending = db.get_pending_reviews(review_job_id)
 
         if not pending:
-            st.info("No pending records to review. This review may have already been completed.")
+            st.info(
+                "No pending records to review. This review may have already been completed."
+            )
             if st.button("Close Review"):
                 st.session_state.review_job_id = None
                 st.session_state.review_filename = None
@@ -540,9 +551,17 @@ if tab_review is not None:
         else:
             # Build editable dataframe from pending records
             schema_fields = [
-                "timestamp", "tool_id", "severity", "event_name",
-                "parameter_name", "parameter_value", "unit",
-                "wafer_id", "recipe_id", "process_stage", "log_type",
+                "timestamp",
+                "tool_id",
+                "severity",
+                "event_name",
+                "parameter_name",
+                "parameter_value",
+                "unit",
+                "wafer_id",
+                "recipe_id",
+                "process_stage",
+                "log_type",
                 "raw_message",
             ]
 
@@ -569,8 +588,14 @@ if tab_review is not None:
             rc1.metric("Records to Review", len(review_rows))
             sev_counts = review_df["severity"].value_counts().to_dict()
             rc2.metric("Unique Tools", review_df["tool_id"].nunique())
-            rc3.metric("Has Errors/Warnings",
-                       sum(1 for s in review_df["severity"] if s in ("ERROR", "WARNING", "CRITICAL")))
+            rc3.metric(
+                "Has Errors/Warnings",
+                sum(
+                    1
+                    for s in review_df["severity"]
+                    if s in ("ERROR", "WARNING", "CRITICAL")
+                ),
+            )
 
             st.divider()
 
@@ -603,7 +628,9 @@ if tab_review is not None:
                         # Remove internal fields
                         raw_dict.pop("_review_id", None)
                         # Clean empty strings to None
-                        raw_dict = {k: (v if v != "" else None) for k, v in raw_dict.items()}
+                        raw_dict = {
+                            k: (v if v != "" else None) for k, v in raw_dict.items()
+                        }
                         try:
                             normalised = normalise_record(
                                 raw_dict,
@@ -611,8 +638,11 @@ if tab_review is not None:
                                 filename=review_filename,
                             )
                             entry = LogEntry(
-                                **{k: v for k, v in normalised.items()
-                                   if k in LogEntry.__dataclass_fields__}
+                                **{
+                                    k: v
+                                    for k, v in normalised.items()
+                                    if k in LogEntry.__dataclass_fields__
+                                }
                             )
                             approved_entries.append(entry)
                         except Exception:
@@ -620,7 +650,9 @@ if tab_review is not None:
 
                     n = db.insert_entries(approved_entries)
                     db.reject_pending_reviews(review_job_id)  # clear pending
-                    db.update_job(review_job_id, status="COMPLETED", progress=100, total_records=n)
+                    db.update_job(
+                        review_job_id, status="COMPLETED", progress=100, total_records=n
+                    )
 
                     # Update session state
                     if review_filename not in st.session_state.parsed_filenames:
@@ -635,8 +667,13 @@ if tab_review is not None:
             with act_col2:
                 if st.button("❌ Reject All", width="stretch"):
                     db.reject_pending_reviews(review_job_id)
-                    db.update_job(review_job_id, status="FAILED", progress=100,
-                                  error_message="Rejected by user", total_records=0)
+                    db.update_job(
+                        review_job_id,
+                        status="FAILED",
+                        progress=100,
+                        error_message="Rejected by user",
+                        total_records=0,
+                    )
                     if review_job_id in st.session_state.active_job_ids:
                         st.session_state.active_job_ids.remove(review_job_id)
                     st.session_state.review_job_id = None
@@ -653,21 +690,29 @@ if tab_review is not None:
                     )
                     tmpl_name = st.text_input(
                         "Template name",
-                        value=review_filename.rsplit(".", 1)[0] if review_filename else "Custom Format",
+                        value=review_filename.rsplit(".", 1)[0]
+                        if review_filename
+                        else "Custom Format",
                         key="tmpl_name_input",
                     )
                     if st.button("Save Template", key="save_tmpl_btn"):
                         content_bytes = st.session_state.review_content_bytes
                         if content_bytes:
-                            sig = db.compute_file_signature(content_bytes, review_filename)
+                            sig = db.compute_file_signature(
+                                content_bytes, review_filename
+                            )
                             # Build field mapping from the first record
                             first_rec = review_rows[0] if review_rows else {}
                             mapping = {k: k for k in schema_fields if first_rec.get(k)}
-                            preview = content_bytes[:500].decode("utf-8", errors="replace")
+                            preview = content_bytes[:500].decode(
+                                "utf-8", errors="replace"
+                            )
                             db.save_format_template(tmpl_name, sig, mapping, preview)
                             st.success(f"✅ Template '{tmpl_name}' saved!")
                         else:
-                            st.error("Cannot save template — file content not available.")
+                            st.error(
+                                "Cannot save template — file content not available."
+                            )
 
 # ─────────────────────── TAB 1: Parsed Logs ────────────────────────────────
 with tab1:
@@ -713,6 +758,28 @@ with tab1:
             file_name=f"parsed_logs_{active_file or 'all'}.csv",
             mime="text/csv",
         )
+
+        # Persistent unmapped-column notice (shown whenever a file is viewed)
+        if active_file:
+            with db._get_conn() as _conn:
+                _unmapped_row = _conn.execute(
+                    """
+                    SELECT json_extract(metadata, '$.ai_unmapped_columns')
+                    FROM log_entries
+                    WHERE source_filename = ?
+                    AND json_extract(metadata, '$.ai_unmapped_columns') IS NOT NULL
+                    LIMIT 1
+                    """,
+                    (active_file,),
+                ).fetchone()
+            if _unmapped_row and _unmapped_row[0]:
+                _unmapped_list = json.loads(_unmapped_row[0])
+                st.info(
+                    f"**{len(_unmapped_list)} column(s) stored in metadata** — "
+                    f"AI could not map these to canonical fields: "
+                    f"`{'`, `'.join(_unmapped_list)}`  \n"
+                    f"They are still accessible via the metadata column."
+                )
 
 # ─────────────────────── TAB 2: Analytics ──────────────────────────────────
 with tab2:
@@ -1029,12 +1096,10 @@ with tab2:
             error_df["display_name"] = error_df["event_name"].apply(
                 lambda x: (x[:80] + "…") if isinstance(x, str) and len(x) > 80 else x
             )
-            error_options = (
-                error_df.apply(
-                    lambda x: f"[{x['timestamp']}] {x['tool_id']} — {x['display_name']}",
-                    axis=1,
-                ).tolist()
-            )
+            error_options = error_df.apply(
+                lambda x: f"[{x['timestamp']}] {x['tool_id']} — {x['display_name']}",
+                axis=1,
+            ).tolist()
             selected_error_str = st.selectbox("Target Fault:", error_options)
 
             if selected_error_str:
@@ -1048,7 +1113,8 @@ with tab2:
                            json_extract(metadata, '$.parameter_name') as parameter_name,
                            json_extract(metadata, '$.parameter_value') as parameter_value,
                            json_extract(metadata, '$.unit') as unit,
-                           COALESCE(json_extract(metadata, '$.event_name'), raw_message) as event_name,
+                           COALESCE(json_extract(metadata, '$.event_name'),
+                               raw_message) as event_name,
                            drain_cluster_id,
                            raw_message
                     FROM log_entries
@@ -1062,12 +1128,18 @@ with tab2:
 
                 seq_df = seq_df.sort_values(by="timestamp", ascending=True)
                 if "parameter_value" in seq_df.columns:
-                    seq_df["parameter_value"] = pd.to_numeric(seq_df["parameter_value"], errors="coerce")
+                    seq_df["parameter_value"] = pd.to_numeric(
+                        seq_df["parameter_value"], errors="coerce"
+                    )
 
                 # Truncate raw_message for display
                 if "raw_message" in seq_df.columns:
                     seq_df["raw_message"] = seq_df["raw_message"].apply(
-                        lambda x: (x[:120] + "…") if isinstance(x, str) and len(x) > 120 else x
+                        lambda x: (
+                            (x[:120] + "…")
+                            if isinstance(x, str) and len(x) > 120
+                            else x
+                        )
                     )
 
                 # Drop columns that are entirely NULL (cleaner for unstructured-only data)
@@ -1078,13 +1150,17 @@ with tab2:
                         return ["background-color: rgba(255, 99, 71, 0.2)"] * len(row)
                     return [""] * len(row)
 
-                st.dataframe(seq_df.style.apply(highlight_target, axis=1), width="stretch")
+                st.dataframe(
+                    seq_df.style.apply(highlight_target, axis=1), width="stretch"
+                )
 
                 # Show cluster context if drain_cluster_id exists on the target fault
                 target_cluster = target_row.get("drain_cluster_id")
                 if target_cluster is not None:
-                    st.caption(f"🔗 Drain3 Cluster ID: **{int(target_cluster)}** — "
-                               "other events sharing this template pattern may indicate recurring issues.")
+                    st.caption(
+                        f"🔗 Drain3 Cluster ID: **{int(target_cluster)}** — "
+                        "other events sharing this template pattern may indicate recurring issues."
+                    )
         else:
             st.info(
                 "No critical faults detected in the current log file to perform RCA."
@@ -1109,7 +1185,8 @@ with tab3:
                 with db._get_conn() as conn:
                     anomalies = pd.read_sql_query(
                         """
-                        SELECT COALESCE(json_extract(metadata, '$.event_name'), raw_message) as event_name,
+                        SELECT COALESCE(json_extract(metadata, '$.event_name'),
+                               raw_message) as event_name,
                                COUNT(*) as freq
                         FROM log_entries
                         WHERE severity IN ('ERROR', 'CRITICAL') AND source_filename = ?
@@ -1235,7 +1312,12 @@ with tab4:
             "process_step | alarm | sensor_reading | maintenance | info",
         ),
         ("severity", "TEXT", "✅ Req", "DEBUG | INFO | WARNING | ERROR | CRITICAL"),
-        ("event_name", "JSON→TEXT", "Optional", "Human-readable event description (in metadata)"),
+        (
+            "event_name",
+            "JSON→TEXT",
+            "Optional",
+            "Human-readable event description (in metadata)",
+        ),
         ("recipe_id", "TEXT", "Optional", "Process recipe identifier"),
         ("wafer_id", "TEXT", "Optional", "Wafer / lot identifier"),
         ("process_stage", "TEXT", "Optional", "LOAD | PROCESS | VENT | UNLOAD etc."),
@@ -1331,41 +1413,55 @@ with tab4:
 with tab5:
     st.markdown("### 📡 Live MQTT Ingestion")
     st.caption("Real-time view of logs streaming from the fab machines via MQTT.")
-    
-    # Auto-refresh the page every 2 seconds
-    st_autorefresh(interval=2000, limit=None, key="live_view_refresh")
-    
-    # Query the latest MQTT logs (filename starts with mqtt_)
-    live_rows = db.query_entries(
-        tool_id=None,
-        severity=None,
-        log_type=None,
-        source_filename=None,
-        limit=100
-    )
-    
-    mqtt_rows = [r for r in live_rows if r.get("source_filename", "").startswith("mqtt_")]
-    
-    if not mqtt_rows:
-        st.info("No live MQTT logs found yet. Ensure the Mosquitto broker and `mqtt_server.py` are running, and the Pi is sending data.")
-    else:
-        live_df = pd.DataFrame(mqtt_rows)
-        if "parameter_value" in live_df.columns:
-            live_df["parameter_value"] = pd.to_numeric(live_df["parameter_value"], errors="coerce")
-            
-        # Ensure all columns exist to prevent KeyError
-        display_columns = ["timestamp", "tool_id", "severity", "event_name", "parameter_name", "parameter_value", "unit", "wafer_id", "recipe_id"]
-        for col in display_columns:
-            if col not in live_df.columns:
-                live_df[col] = None
-                
-        # Display latest entry prominently
-        latest = live_df.iloc[0]
-        st.success(f"**Latest Activity ({latest['timestamp']}):** [{latest['tool_id']}] {latest['severity']} - {latest.get('event_name', '')}")
-        
-        # Display data table
-        st.dataframe(
-            live_df[display_columns],
-            width="stretch",
-            hide_index=True
+    @st.fragment(run_every="2s")
+    def live_view_auto_refresh():
+        # Query the latest MQTT logs (filename starts with mqtt_)
+        live_rows = db.query_entries(
+            tool_id=None, severity=None, log_type=None, source_filename=None, limit=100
         )
+
+        mqtt_rows = [
+            r for r in live_rows if r.get("source_filename", "").startswith("mqtt_")
+        ]
+
+        if not mqtt_rows:
+            st.info(
+                "No live MQTT logs found yet. Ensure the Mosquitto broker "
+                "and `mqtt_server.py` are running, and the Pi is sending data."
+            )
+        else:
+            live_df = pd.DataFrame(mqtt_rows)
+            if "parameter_value" in live_df.columns:
+                live_df["parameter_value"] = pd.to_numeric(
+                    live_df["parameter_value"], errors="coerce"
+                )
+
+            # Ensure all columns exist to prevent KeyError
+            display_columns = [
+                "timestamp",
+                "tool_id",
+                "severity",
+                "event_name",
+                "parameter_name",
+                "parameter_value",
+                "unit",
+                "wafer_id",
+                "recipe_id",
+            ]
+            for col in display_columns:
+                if col not in live_df.columns:
+                    live_df[col] = None
+
+            # Display latest entry prominently
+            latest = live_df.iloc[0]
+            activity = (
+                f"**Latest Activity ({latest['timestamp']}):**"
+                f" [{latest['tool_id']}] {latest['severity']}"
+                f" - {latest.get('event_name', '')}"
+            )
+            st.success(activity)
+
+            # Display data table
+            st.dataframe(live_df[display_columns], width="stretch", hide_index=True)
+
+    live_view_auto_refresh()

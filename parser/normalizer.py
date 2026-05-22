@@ -5,6 +5,7 @@ Best-effort approach: missing timestamps default to now(), missing tool_id defau
 to the filename stem. No field absence will crash the pipeline.
 """
 
+import json
 import re
 from datetime import datetime
 from typing import Any
@@ -205,6 +206,12 @@ PARAM_ALIAS_MAP = {
 # Log-type classification
 # ---------------------------------------------------------------------------
 
+_PARAM_RE = re.compile(
+    r"(?P<pname>Pressure|Temperature|Flow|Voltage|Current|Speed|RPM|Power|Step|Humidity)"
+    r"\s*[=:]\s*(?P<pval>-?\d+(?:\.\d+)?)\s*(?P<punit>Torr|RPM|C|%|V|A|W)?",
+    re.IGNORECASE,
+)
+
 LOG_TYPE_PATTERNS = {
     "alarm": r"alarm|fault|error|fail|critical|emergency",
     "sensor_reading": r"sensor|reading|measur|temperat|pressure|flow|voltage|current",
@@ -276,13 +283,12 @@ def _safe_float(val: Any) -> float | None:
 # ---------------------------------------------------------------------------
 
 
-import json
-
 def normalise_record(
     raw: dict,
     source_format: str,
     filename: str,
     is_recipe: bool = False,
+    sample_rows: list[dict] | None = None,
 ) -> dict:
     """
     Schema-on-Read Normalization with Unstructured Bypass.
@@ -318,19 +324,44 @@ def normalise_record(
         # ── STRUCTURED PATH: full alias-based field extraction ─────────
         raw_msg_candidates = []
 
+        # AI header inference — runs once per unique header set, result is cached
+        from parser.header_inference import get_or_infer_mapping
+
+        ai_mapping, _, ai_unmapped = get_or_infer_mapping(list(flat_raw.keys()), filename, sample_rows)
+
         for k, v in flat_raw.items():
             key = k.lower().strip()
 
-            if _match_alias(key, TIMESTAMP_ALIASES):
+            # Check AI-inferred mapping first (original key, then lowercased key)
+            canonical = ai_mapping.get(k) or ai_mapping.get(key)
+
+            if canonical == "timestamp" or _match_alias(key, TIMESTAMP_ALIASES):
                 out["timestamp"] = _parse_timestamp(v) or out["timestamp"]
-            elif _match_alias(key, TOOL_ID_ALIASES):
-                out.setdefault("tool_id", str(v))
-            elif _match_alias(key, SEVERITY_ALIASES):
+            elif canonical == "tool_id" or _match_alias(key, TOOL_ID_ALIASES):
+                if out.get("tool_id") == "UNKNOWN":   # only overwrite the placeholder
+                    out["tool_id"] = str(v)
+            elif canonical == "severity" or _match_alias(key, SEVERITY_ALIASES):
                 out["severity"] = _normalise_severity(str(v))
-            elif _match_alias(key, EVENT_NAME_ALIASES):
+            elif canonical == "event_name" or _match_alias(key, EVENT_NAME_ALIASES):
                 msg = str(v)
                 metadata["event_name"] = msg
                 raw_msg_candidates.append(msg)
+            elif canonical:
+                # AI mapped it to a metadata field not handled above
+                if canonical == "recipe_id":
+                    metadata["recipe_id"] = str(v)
+                elif canonical == "wafer_id":
+                    metadata["wafer_id"] = str(v)
+                elif canonical == "process_stage":
+                    metadata["process_stage"] = str(v)
+                elif canonical == "parameter_name":
+                    metadata["parameter_name"] = _normalise_param_name(str(v))
+                elif canonical == "parameter_value":
+                    metadata["parameter_value"] = _safe_float(v)
+                elif canonical == "unit":
+                    metadata["unit"] = str(v)
+                else:
+                    metadata[canonical] = v
             else:
                 if _match_alias(key, RECIPE_ID_ALIASES):
                     metadata["recipe_id"] = str(v)
@@ -356,6 +387,10 @@ def normalise_record(
             else:
                 out["raw_message"] = json.dumps(flat_raw, default=str)
 
+        # Store unmapped columns so the UI can surface them
+        if ai_unmapped:
+            metadata["ai_unmapped_columns"] = ai_unmapped
+
         # ── Default Injection for structured path ─────────────────────
         if not out.get("tool_id") or out.get("tool_id") == "UNKNOWN":
             out["tool_id"] = filename.rsplit(".", 1)[0] if "." in filename else filename
@@ -363,7 +398,9 @@ def normalise_record(
                 out["tool_id"] = "UNKNOWN_TOOL"
 
         # ── Classify log_type and normalized_message ──────────────────
-        combined = " ".join([metadata.get("event_name", ""), out.get("raw_message", "")])
+        combined = " ".join(
+            [metadata.get("event_name", ""), out.get("raw_message", "")]
+        )
         out.setdefault("log_type", _classify_log_type(combined))
 
         parts = []
@@ -373,44 +410,54 @@ def normalise_record(
             parts.append(f"{out['severity']}:")
         if metadata.get("event_name"):
             parts.append(metadata["event_name"])
-        if metadata.get("parameter_name") and metadata.get("parameter_value") is not None:
+        if (
+            metadata.get("parameter_name")
+            and metadata.get("parameter_value") is not None
+        ):
             unit = metadata.get("unit", "")
-            parts.append(f"| {metadata['parameter_name']}={metadata['parameter_value']}{unit}")
-        metadata["normalized_message"] = " ".join(parts) if parts else out.get("raw_message", "")
+            parts.append(
+                f"| {metadata['parameter_name']}={metadata['parameter_value']}{unit}"
+            )
+        metadata["normalized_message"] = (
+            " ".join(parts) if parts else out.get("raw_message", "")
+        )
 
         # ── Post-processing fallback (structured only) ────────────────
         combined_text = combined.lower()
         if out.get("tool_id") == "UNKNOWN_TOOL":
-            tool_match = re.search(r"\b([A-Z]{2,6}[-_]?\d{2,6})\b", metadata.get("event_name", ""))
+            tool_match = re.search(
+                r"\b([A-Z]{2,6}[-_]?\d{2,6})\b", metadata.get("event_name", "")
+            )
             if tool_match:
                 out["tool_id"] = tool_match.group(1)
 
         if not metadata.get("parameter_name"):
-            param_match = re.search(
-                r"(?P<pname>Pressure|Temperature|Flow|Voltage|Current|Speed|RPM|Power|Step|Humidity)\s*[=:]\s*(?P<pval>-?\d+(?:\.\d+)?)\s*(?P<punit>Torr|RPM|C|%|V|A|W)?",
-                metadata.get("event_name", ""),
-                re.IGNORECASE,
-            )
+            param_match = _PARAM_RE.search(metadata.get("event_name", ""))
             if param_match:
-                metadata["parameter_name"] = _normalise_param_name(param_match.group("pname"))
+                metadata["parameter_name"] = _normalise_param_name(
+                    param_match.group("pname")
+                )
                 metadata["parameter_value"] = _safe_float(param_match.group("pval"))
                 if param_match.group("punit"):
                     metadata["unit"] = param_match.group("punit")
 
         if not metadata.get("wafer_id"):
-            wafer_match = re.search(r"(?:wafer|lot|substrate)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)", combined_text, re.IGNORECASE)
+            wafer_match = re.search(
+                r"(?:wafer|lot|substrate)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)",
+                combined_text,
+                re.IGNORECASE,
+            )
             if wafer_match:
                 metadata["wafer_id"] = wafer_match.group(1)
 
-        if not metadata.get("recipe_id"):
-            recipe_match = re.search(r"(?:recipe|process)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)", combined_text, re.IGNORECASE)
-            if recipe_match:
-                candidate = recipe_match.group(1)
-                if candidate.lower() not in ("start", "stepcomplete", "stop", "complete"):
-                    metadata["recipe_id"] = candidate
+
 
         if not metadata.get("step_number"):
-            step_match = re.search(r"(?:step|stage|phase)\s*(?:no|num|number)?\s*[=:#]?\s*(\d+)", combined_text, re.IGNORECASE)
+            step_match = re.search(
+                r"(?:step|stage|phase)\s*(?:no|num|number)?\s*[=:#]?\s*(\d+)",
+                combined_text,
+                re.IGNORECASE,
+            )
             if step_match:
                 try:
                     metadata["step_number"] = int(step_match.group(1))
@@ -419,7 +466,9 @@ def normalise_record(
 
         if is_recipe:
             metadata.setdefault("recipe_id", "UNKNOWN")
-            metadata.setdefault("setpoint_name", metadata.get("parameter_name", "UNKNOWN"))
+            metadata.setdefault(
+                "setpoint_name", metadata.get("parameter_name", "UNKNOWN")
+            )
             metadata.setdefault("setpoint_value", metadata.get("parameter_value", 0.0))
             out["log_type"] = "recipe"
 
@@ -432,8 +481,15 @@ def normalise_record(
         # or regex post-processing that causes field contamination.
 
         # Core fields the parser may have explicitly set (exact key match)
-        CORE_KEYS = {"tool_id", "timestamp", "severity", "raw_message",
-                     "log_type", "source_format", "source_filename"}
+        CORE_KEYS = {
+            "tool_id",
+            "timestamp",
+            "severity",
+            "raw_message",
+            "log_type",
+            "source_format",
+            "source_filename",
+        }
 
         for k, v in flat_raw.items():
             if k in CORE_KEYS:
@@ -459,9 +515,15 @@ def normalise_record(
         if out["severity"] == "INFO":
             msg_lower = out.get("raw_message", "").lower()
             for sev_word, sev_level in [
-                ("critical", "CRITICAL"), ("fatal", "CRITICAL"), ("emergency", "CRITICAL"),
-                ("alert", "CRITICAL"), ("error", "ERROR"), ("fault", "ERROR"),
-                ("fail", "ERROR"), ("warn", "WARNING"), ("caution", "WARNING"),
+                ("critical", "CRITICAL"),
+                ("fatal", "CRITICAL"),
+                ("emergency", "CRITICAL"),
+                ("alert", "CRITICAL"),
+                ("error", "ERROR"),
+                ("fault", "ERROR"),
+                ("fail", "ERROR"),
+                ("warn", "WARNING"),
+                ("caution", "WARNING"),
             ]:
                 if re.search(rf"\b{sev_word}\b", msg_lower):
                     out["severity"] = sev_level

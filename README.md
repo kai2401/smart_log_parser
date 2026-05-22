@@ -65,6 +65,7 @@ Raw Tool Logs (JSON | CSV | XML | Syslog | Text)
 - **Session Overview**: executive summary of the uploaded log session
 - **Batch Classification**: classify up to 50 entries at once (normal / warning / anomaly / fault)
 - **Deep-Dive Analysis**: detailed explanation + root cause + recommended action for any single entry
+- **Dynamic Header Inference**: ingestion of different header names with same semantic meaning. Allowing for smoother integration.
 
 Set your `ANTHROPIC_API_KEY` environment variable or paste it in the sidebar.
 

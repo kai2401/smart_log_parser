@@ -1,2 +1,14 @@
 [flake8]
 max-line-length = 100
+# E203: whitespace before ':' is valid in slice notation (Black style)
+extend-ignore = E203
+exclude =
+    .venv,
+    __pycache__,
+    .git,
+    synthetic/samples
+per-file-ignores =
+    # CSS embedded in triple-quoted strings: the Google Fonts @import URL (139 chars)
+    # cannot be split without breaking CSS, and trailing spaces in CSS selectors inside
+    # the string literal cannot be fixed by autopep8.
+    app.py: W291,W293,E501

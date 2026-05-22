@@ -296,12 +296,15 @@ def write_key_value(entries: list[dict], path: str):
 
 def write_binary(entries: list[dict], path: str):
     import struct
+
     with open(path, "wb") as f:
         # Magic bytes for proprietary log
         f.write(b"\x89BNL\r\n\x1a\n\x00\x00")
         for e in entries:
             # Simple length-prefixed, null-delimited payload
-            rec = b"\x00".join(f"{k}={v}".encode("utf-8") for k, v in e.items() if v is not None)
+            rec = b"\x00".join(
+                f"{k}={v}".encode("utf-8") for k, v in e.items() if v is not None
+            )
             f.write(struct.pack("<I", len(rec)) + rec)
 
 

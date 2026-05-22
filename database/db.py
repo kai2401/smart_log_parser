@@ -76,6 +76,15 @@ CREATE TABLE IF NOT EXISTS format_templates (
 );
 """
 
+CREATE_HEADER_MAPPINGS_SQL = """
+CREATE TABLE IF NOT EXISTS header_mappings (
+    header_fingerprint  TEXT PRIMARY KEY,
+    mapping_json        TEXT NOT NULL,
+    source_filename     TEXT,
+    created_at          TEXT NOT NULL
+);
+"""
+
 INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_timestamp  ON log_entries(timestamp);",
     "CREATE INDEX IF NOT EXISTS idx_tool_id    ON log_entries(tool_id);",
@@ -99,6 +108,7 @@ def init_db() -> None:
         conn.execute(CREATE_JOBS_SQL)
         conn.execute(CREATE_PENDING_REVIEWS_SQL)
         conn.execute(CREATE_FORMAT_TEMPLATES_SQL)
+        conn.execute(CREATE_HEADER_MAPPINGS_SQL)
         _ensure_column(conn, "log_entries", "metadata", "TEXT")
         for idx in INDEX_SQL:
             conn.execute(idx)
@@ -109,9 +119,7 @@ def init_db() -> None:
 def _ensure_column(
     conn: sqlite3.Connection, table: str, column: str, col_type: str
 ) -> None:
-    existing = {
-        row["name"] for row in conn.execute(f"PRAGMA table_info({table})")
-    }
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})")}
     if column not in existing:
         conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
 
@@ -147,9 +155,7 @@ def insert_recipes(entries: list[RecipeEntry]) -> int:
 
     cols = [f for f in RecipeEntry.__dataclass_fields__]
     placeholders = ", ".join("?" * len(cols))
-    sql = (
-        f"INSERT OR IGNORE INTO recipe_entries ({', '.join(cols)}) VALUES ({placeholders})"
-    )
+    sql = f"INSERT OR IGNORE INTO recipe_entries ({', '.join(cols)}) VALUES ({placeholders})"
 
     rows = []
     for e in entries:
@@ -185,7 +191,9 @@ def query_entries(
     source_filename: str | None = None,
     limit: int = 1000,
 ) -> list[dict]:
-    logger.debug(f"Querying entries with tool_id={tool_id}, severity={severity}, limit={limit}")
+    logger.debug(
+        f"Querying entries with tool_id={tool_id}, severity={severity}, limit={limit}"
+    )
     conditions = []
     params: list[Any] = []
 
@@ -209,7 +217,8 @@ def query_entries(
         params.append(source_filename)
     if search:
         conditions.append(
-            "(raw_message LIKE ? OR json_extract(metadata, '$.event_name') LIKE ? OR json_extract(metadata, '$.normalized_message') LIKE ?)"
+            "(raw_message LIKE ? OR json_extract(metadata, '$.event_name') LIKE ?"
+            " OR json_extract(metadata, '$.normalized_message') LIKE ?)"
         )
         pattern = f"%{search}%"
         params.extend([pattern, pattern, pattern])
@@ -222,7 +231,7 @@ def query_entries(
 
     with _get_conn() as conn:
         rows = conn.execute(sql, params).fetchall()
-        
+
     results = []
     for r in rows:
         d = dict(r)
@@ -280,27 +289,29 @@ def get_summary_stats(source_filename: str | None = None) -> dict:
     where = "WHERE source_filename = ?" if source_filename else ""
     params = [source_filename] if source_filename else []
 
+    conj = "AND" if where else "WHERE"
     with _get_conn() as conn:
         total = conn.execute(
             f"SELECT COUNT(*) FROM log_entries {where}", params
         ).fetchone()[0]
         alarms = conn.execute(
-            f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} log_type = 'alarm'",
+            f"SELECT COUNT(*) FROM log_entries {where} {conj} log_type = 'alarm'",
             params,
         ).fetchone()[0]
         errors = conn.execute(
-            f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} severity IN ('ERROR','CRITICAL')",
+            f"SELECT COUNT(*) FROM log_entries {where} {conj} severity IN ('ERROR','CRITICAL')",
             params,
         ).fetchone()[0]
         warnings_c = conn.execute(
-            f"SELECT COUNT(*) FROM log_entries {where} {'AND' if where else 'WHERE'} severity = 'WARNING'",
+            f"SELECT COUNT(*) FROM log_entries {where} {conj} severity = 'WARNING'",
             params,
         ).fetchone()[0]
         tools = conn.execute(
             f"SELECT COUNT(DISTINCT tool_id) FROM log_entries {where}", params
         ).fetchone()[0]
+        recipes_where = "WHERE source_filename = ?" if source_filename else ""
         recipes = conn.execute(
-            f"SELECT COUNT(*) FROM recipe_entries {'WHERE source_filename = ?' if source_filename else ''}",
+            f"SELECT COUNT(*) FROM recipe_entries {recipes_where}",
             [source_filename] if source_filename else [],
         ).fetchone()[0]
     return {
@@ -316,9 +327,23 @@ def get_summary_stats(source_filename: str | None = None) -> dict:
 def get_distinct_values(column: str, source_filename: str | None = None) -> list[str]:
     where = "WHERE source_filename = ?" if source_filename else ""
     params = [source_filename] if source_filename else []
-    
+
     # If it's a dynamic column, extract from JSON
-    core_columns = {"id", "timestamp", "tool_id", "log_type", "severity", "raw_message", "drain_cluster_id", "source_format", "source_filename", "ai_summary", "ai_classification", "ai_root_cause_hint", "metadata"}
+    core_columns = {
+        "id",
+        "timestamp",
+        "tool_id",
+        "log_type",
+        "severity",
+        "raw_message",
+        "drain_cluster_id",
+        "source_format",
+        "source_filename",
+        "ai_summary",
+        "ai_classification",
+        "ai_root_cause_hint",
+        "metadata",
+    }
     if column not in core_columns:
         db_col = f"json_extract(metadata, '$.{column}')"
     else:
@@ -343,14 +368,17 @@ def clear_all() -> None:
 def delete_by_filename(filename: str) -> None:
     with _get_conn() as conn:
         conn.execute("DELETE FROM log_entries WHERE source_filename = ?", (filename,))
-        conn.execute("DELETE FROM recipe_entries WHERE source_filename = ?", (filename,))
+        conn.execute(
+            "DELETE FROM recipe_entries WHERE source_filename = ?", (filename,)
+        )
         conn.commit()
 
 
 def create_job(job_id: str, filename: str) -> None:
     with _get_conn() as conn:
         conn.execute(
-            "INSERT OR REPLACE INTO processing_jobs (id, filename, status, progress) VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO processing_jobs"
+            " (id, filename, status, progress) VALUES (?, ?, ?, ?)",
             (job_id, filename, "PENDING", 0),
         )
         conn.commit()
@@ -378,7 +406,8 @@ def update_job(
 def get_job(job_id: str) -> dict | None:
     with _get_conn() as conn:
         row = conn.execute(
-            "SELECT id, filename, status, progress, error_message, total_records FROM processing_jobs WHERE id = ?",
+            "SELECT id, filename, status, progress, error_message, total_records"
+            " FROM processing_jobs WHERE id = ?",
             (job_id,),
         ).fetchone()
     return dict(row) if row else None
@@ -388,6 +417,7 @@ def get_job(job_id: str) -> dict | None:
 # Pending reviews (human-in-the-loop)
 # ---------------------------------------------------------------------------
 
+
 def insert_pending_reviews(
     job_id: str,
     filename: str,
@@ -395,20 +425,24 @@ def insert_pending_reviews(
 ) -> int:
     """Stage LLM-parsed records for human review. Returns count inserted."""
     import uuid as _uuid
+
     rows = []
     for rec in records:
-        rows.append((
-            str(_uuid.uuid4()),
-            job_id,
-            filename,
-            json.dumps(rec, default=str),
-            None,
-            0,
-        ))
+        rows.append(
+            (
+                str(_uuid.uuid4()),
+                job_id,
+                filename,
+                json.dumps(rec, default=str),
+                None,
+                0,
+            )
+        )
     with _get_conn() as conn:
         conn.executemany(
-            "INSERT OR IGNORE INTO pending_reviews (id, job_id, filename, record_data, field_mapping, approved) "
-            "VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO pending_reviews"
+            " (id, job_id, filename, record_data, field_mapping, approved)"
+            " VALUES (?, ?, ?, ?, ?, ?)",
             rows,
         )
         conn.commit()
@@ -473,6 +507,7 @@ def count_pending_reviews(job_id: str) -> int:
 # Format templates (reusable field mappings)
 # ---------------------------------------------------------------------------
 
+
 def compute_file_signature(content_bytes: bytes, filename: str) -> str:
     """Compute a signature for matching format templates."""
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "unknown"
@@ -488,6 +523,7 @@ def save_format_template(
 ) -> str:
     """Save a reusable format template. Returns the template ID."""
     import uuid as _uuid
+
     template_id = str(_uuid.uuid4())
     with _get_conn() as conn:
         conn.execute(
@@ -530,7 +566,9 @@ def list_format_templates() -> list[dict]:
     results = []
     for r in rows:
         d = dict(r)
-        d["field_mapping"] = json.loads(d["field_mapping"]) if d["field_mapping"] else {}
+        d["field_mapping"] = (
+            json.loads(d["field_mapping"]) if d["field_mapping"] else {}
+        )
         results.append(d)
     return results
 
@@ -541,3 +579,60 @@ def delete_format_template(template_id: str) -> None:
         conn.execute("DELETE FROM format_templates WHERE id = ?", (template_id,))
         conn.commit()
 
+
+# ---------------------------------------------------------------------------
+# Header mapping cache (AI-inferred column → canonical field)
+# ---------------------------------------------------------------------------
+
+
+def _make_fingerprint(columns: list[str]) -> str:
+    """sha256 of sorted, lowercased, pipe-joined column names."""
+    joined = "|".join(sorted(c.lower() for c in columns))
+    return hashlib.sha256(joined.encode()).hexdigest()
+
+
+def get_header_mapping(fingerprint: str) -> dict | None:
+    """Return cached mapping dict for a fingerprint, or None on miss."""
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT mapping_json FROM header_mappings WHERE header_fingerprint = ?",
+            (fingerprint,),
+        ).fetchone()
+    if not row:
+        return None
+    try:
+        return json.loads(row["mapping_json"])
+    except Exception:
+        return None
+
+
+def save_header_mapping(fingerprint: str, mapping: dict, filename: str = "") -> None:
+    """Persist an inferred mapping. Ignores conflicts (fingerprint is PK)."""
+    with _get_conn() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO header_mappings "
+            "(header_fingerprint, mapping_json, source_filename, created_at) "
+            "VALUES (?, ?, ?, ?)",
+            (
+                fingerprint,
+                json.dumps(mapping),
+                filename,
+                datetime.now().isoformat(),
+            ),
+        )
+        conn.commit()
+
+
+def get_header_mapping_by_filename(filename: str) -> dict | None:
+    """Return the inferred mapping stored for a specific source filename, or None."""
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT mapping_json FROM header_mappings WHERE source_filename = ? LIMIT 1",
+            (filename,),
+        ).fetchone()
+    if not row:
+        return None
+    try:
+        return json.loads(row["mapping_json"])
+    except Exception:
+        return None

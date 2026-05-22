@@ -6,13 +6,15 @@ from parser import parse_log
 
 def test_json_no_timestamp():
     """Missing timestamp should NOT crash — defaults to now()."""
-    data = json.dumps([
-        {"tool_id": "ETX01", "severity": "ERROR", "message": "Vacuum failure"}
-    ]).encode()
+    data = json.dumps(
+        [{"tool_id": "ETX01", "severity": "ERROR", "message": "Vacuum failure"}]
+    ).encode()
     entries, warnings = parse_log(data, "test.json")
     assert len(entries) == 1, f"Expected 1 entry, got {len(entries)}"
     e = entries[0]
-    assert e.timestamp is not None and e.timestamp != "", "Timestamp should default to now()"
+    assert e.timestamp is not None and e.timestamp != "", (
+        "Timestamp should default to now()"
+    )
     assert e.tool_id == "ETX01"
     assert e.severity == "ERROR"
     print(f"  PASS: timestamp={e.timestamp[:19]}, tool_id={e.tool_id}")
@@ -36,9 +38,9 @@ def test_invalid_file_rejected():
 
 def test_recipe_detection():
     """Files with 'recipe' in the name should get log_type='recipe'."""
-    data = json.dumps([
-        {"recipe_id": "RCP-001", "parameter_name": "temperature", "value": 400}
-    ]).encode()
+    data = json.dumps(
+        [{"recipe_id": "RCP-001", "parameter_name": "temperature", "value": 400}]
+    ).encode()
     entries, warnings = parse_log(data, "recipe_config.json")
     assert len(entries) >= 1
     e = entries[0]
@@ -56,12 +58,17 @@ def test_best_effort_defaults():
     assert e.timestamp is not None and len(e.timestamp) > 0
     assert e.tool_id is not None and len(e.tool_id) > 0
     assert e.severity == "INFO"
-    print(f"  PASS: timestamp={e.timestamp[:10]}..., tool_id={e.tool_id}, severity={e.severity}")
+    print(
+        f"  PASS: timestamp={e.timestamp[:10]}..., tool_id={e.tool_id}, severity={e.severity}"
+    )
 
 
 def test_csv_parse():
     """CSV with headers should parse correctly."""
-    csv_data = b"timestamp,tool_id,severity,message\n2024-01-15T10:00:00,ETX03,ERROR,Pump fault detected"
+    csv_data = (
+        b"timestamp,tool_id,severity,message\n"
+        b"2024-01-15T10:00:00,ETX03,ERROR,Pump fault detected"
+    )
     entries, warnings = parse_log(csv_data, "logs.csv")
     assert len(entries) == 1
     e = entries[0]
@@ -89,6 +96,5 @@ if __name__ == "__main__":
         except Exception as ex:
             print(f"  FAIL: {ex}")
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"Results: {passed}/{len(tests)} tests passed")
-

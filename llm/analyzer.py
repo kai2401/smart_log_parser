@@ -35,7 +35,9 @@ Return ONLY the JSON array. No markdown fences, no preamble.
 def _call_chat(system: str, user: str, max_tokens: int) -> str:
     """Call the OpenAI chat completion endpoint and return the assistant content as text."""
     if not client:
-        raise Exception("OpenAI API key not configured. Please add it to your .env file.")
+        raise Exception(
+            "OpenAI API key not configured. Please add it to your .env file."
+        )
     try:
         response = client.chat.completions.create(
             model=config.OPENAI_MODEL,
@@ -164,6 +166,96 @@ def summarise_session(stats: dict, sample_entries: list[dict]) -> str:
         return f"LLM summary unavailable: {e}"
 
 
+INFER_COLUMNS_SYSTEM = """You are a data schema expert for semiconductor manufacturing log systems.
+You will receive column names from an uploaded log file, and optionally up to 3 sample rows of data.
+Map each column name to one of these canonical field names if there is a reasonable match.
+Use both the column name AND the sample values to determine the best mapping.
+Return ONLY a JSON object, no markdown, no explanation.
+
+Canonical fields and their expected value patterns:
+- timestamp: event time — e.g. "2024-03-01T08:00:52" (ISO 8601 datetime string)
+  (aliases: ts, time, datetime, date, occurred_at, log_time)
+- tool_id: equipment identifier — e.g. "ETCH-01", "CVD-03", "PVD-04" (tool type hyphen number)
+  (aliases: machine, host, device, equip, unit)
+- severity: log level — one of: INFO, WARNING, ERROR, CRITICAL
+  (aliases: level, priority, sev, log_level, type)
+- event_name: human-readable message — e.g. "Recipe started", "Alarm triggered: E002_PRESSURE_FAULT"
+  (aliases: message, msg, description, text, detail)
+- recipe_id: process recipe — e.g. "ETH_SiO2_v3", "CVD_TiN_v2", "PVD_Al_v1" (name_version format)
+  (aliases: recipe, process, job)
+- wafer_id: wafer or lot identifier — e.g. "LOT4225-W10", "LOT7414-W25" (LOT####-W## format)
+  (aliases: wafer, lot, substrate, batch)
+- parameter_name: sensor/metric name — e.g. "temperature", "pressure", "flow_rate", "rf_power", "chuck_temp"
+  (aliases: sensor, metric, param, key)
+- parameter_value: numeric sensor reading — e.g. 19.8818, 166.0908, 3.2709 (float, up to 4 decimal places)
+  (aliases: value, reading, val, measurement)
+- unit: unit of measurement — e.g. "°C", "mTorr", "sccm", "W", "Torr"
+  (aliases: units, uom)
+- process_stage: process phase — one of: LOAD, PUMP_DOWN, PROCESS, PURGE, VENT, UNLOAD, IDLE
+  (aliases: stage, phase, step, operation)
+
+Rules:
+- Use sample row values as strong evidence — if a column's values look like timestamps, map it to timestamp even if the name is unusual
+- Only map columns where you are confident (>80%)
+- Unmapped columns should be omitted from the output entirely
+- If a column clearly does not match any canonical field, omit it
+- Return format: {"raw_column_name": "canonical_field_name", ...}"""
+
+_CANONICAL_FIELDS = {
+    "timestamp",
+    "tool_id",
+    "severity",
+    "event_name",
+    "recipe_id",
+    "wafer_id",
+    "parameter_name",
+    "parameter_value",
+    "unit",
+    "process_stage",
+}
+
+
+def infer_column_mapping(
+    columns: list[str], sample_rows: list[dict] | None = None
+) -> dict[str, str]:
+    """
+    Use the LLM to map raw column names to canonical schema fields.
+    Optionally accepts up to 3 sample rows to ground the inference on actual values.
+    Returns an empty dict on any failure — callers must handle this gracefully.
+    """
+    if not columns:
+        return {}
+    try:
+        if sample_rows:
+            payload = {"columns": columns, "sample_rows": sample_rows[:3]}
+        else:
+            payload = {"columns": columns}
+        user_msg = json.dumps(payload)
+        raw = _call_chat(INFER_COLUMNS_SYSTEM, user_msg, max_tokens=300)
+        raw = (
+            raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        )
+        result = json.loads(raw)
+        if not isinstance(result, dict):
+            return {}
+        # Validate: discard entries with non-canonical values or non-string keys
+        validated: dict[str, str] = {}
+        seen_values: set[str] = set()
+        for raw_col, canonical in result.items():
+            if not isinstance(raw_col, str) or not isinstance(canonical, str):
+                continue
+            if canonical not in _CANONICAL_FIELDS:
+                continue
+            if canonical in seen_values:
+                continue  # keep first, discard duplicates
+            validated[raw_col] = canonical
+            seen_values.add(canonical)
+        return validated
+    except Exception:
+        logger.debug("infer_column_mapping failed — falling back to hardcoded aliases")
+        return {}
+
+
 def generate_text(
     prompt: str,
     system: str | None = None,
@@ -188,13 +280,18 @@ class GuardedChatResponse(BaseModel):
     assistant_reply: str
 
 
-GUARDED_CHAT_SYSTEM = """You are a highly capable AI assistant for a semiconductor data parsing platform.
-A user has uploaded a log file. You are provided with statistics and a sample of the parsed log data as context.
+GUARDED_CHAT_SYSTEM = """
+You are a highly capable AI assistant for a semiconductor data parsing platform.
+A user has uploaded a log file. You are provided with statistics and a sample of the parsed log data
+as context.
 
 GUARDRAIL DIRECTIVES:
-1. Domain Restriction: You must ONLY answer questions related to semiconductor manufacturing, equipment logs, systems analysis, or data parsing.
-2. If the query falls outside this domain, set 'is_domain_relevant' to false, state the 'rejection_reason', and leave 'assistant_reply' empty.
-3. If the query is relevant, set 'is_domain_relevant' to true, leave 'rejection_reason' null, and provide your analysis in 'assistant_reply'. Format the reply using markdown.
+1. Domain Restriction: You must ONLY answer questions related to semiconductor manufacturing,
+   equipment logs, systems analysis, or data parsing.
+2. If the query falls outside this domain, set 'is_domain_relevant' to false, state the
+   'rejection_reason', and leave 'assistant_reply' empty.
+3. If the query is relevant, set 'is_domain_relevant' to true, leave 'rejection_reason' null,
+   and provide your analysis in 'assistant_reply'. Format the reply using markdown.
 """
 
 
@@ -211,7 +308,10 @@ def chat_with_logs(
     if not client:
         return "⚠️ OpenAI API key not configured. Please add it to your .env file."
 
-    context_msg = f"CONTEXT:\nStats: {json.dumps(stats)}\nSample Data: {json.dumps(sample_entries[:20])}"
+    context_msg = (
+        f"CONTEXT:\nStats: {json.dumps(stats)}"
+        f"\nSample Data: {json.dumps(sample_entries[:20])}"
+    )
 
     llm_messages = [
         {"role": "system", "content": GUARDED_CHAT_SYSTEM},

@@ -15,16 +15,16 @@ logger = logging.getLogger(__name__)
 
 def _run_job(content_bytes: bytes, filename: str, job_id: str) -> None:
     try:
-        logger.debug(f"Worker starting background parse job for {filename} (job_id: {job_id})")
+        logger.debug(
+            f"Worker starting background parse job for {filename} (job_id: {job_id})"
+        )
         db.update_job(job_id, status="PROCESSING", progress=5)
         entries, warnings = parse_log(content_bytes, filename)
         logger.debug(f"Worker extracted {len(entries)} entries from {filename}")
 
         # Check if any entries came from LLM-assisted parsing
         # and need human review before committing
-        has_llm_parsed = any(
-            e.source_format == "llm_parsed" for e in entries
-        )
+        has_llm_parsed = any(e.source_format == "llm_parsed" for e in entries)
 
         if has_llm_parsed and entries:
             # Stage records for human review instead of auto-committing
@@ -57,5 +57,7 @@ def _run_job(content_bytes: bytes, filename: str, job_id: str) -> None:
 
 
 def start_background_parsing(content_bytes: bytes, filename: str, job_id: str) -> None:
-    thread = Thread(target=_run_job, args=(content_bytes, filename, job_id), daemon=True)
+    thread = Thread(
+        target=_run_job, args=(content_bytes, filename, job_id), daemon=True
+    )
     thread.start()

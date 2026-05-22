@@ -48,10 +48,25 @@ _PARAM_RE = re.compile(
 )
 # Known parameter names for disambiguation
 _KNOWN_PARAMS = {
-    "temperature", "pressure", "flow_rate", "rf_power", "chuck_temp",
-    "vacuum_level", "voltage", "current", "power", "dose_energy",
-    "precursor_flow", "rotation_speed", "humidity", "rpm", "torque",
-    "thickness", "dose", "resistance", "capacitance",
+    "temperature",
+    "pressure",
+    "flow_rate",
+    "rf_power",
+    "chuck_temp",
+    "vacuum_level",
+    "voltage",
+    "current",
+    "power",
+    "dose_energy",
+    "precursor_flow",
+    "rotation_speed",
+    "humidity",
+    "rpm",
+    "torque",
+    "thickness",
+    "dose",
+    "resistance",
+    "capacitance",
 }
 
 
@@ -105,12 +120,12 @@ def _extract_message_fields(message: str) -> dict:
     # to get just the human-readable event description
     event_text = message
     # Remove key=value pairs (including value+unit like "180.5°C")
-    event_text = re.sub(
-        r"\b(?:wafer|alarm_code|recipe)\s*=\s*\S+", "", event_text
-    )
+    event_text = re.sub(r"\b(?:wafer|alarm_code|recipe)\s*=\s*\S+", "", event_text)
     event_text = re.sub(
         r"\b[a-z][a-z0-9_]*(?:_[a-z]+)+\s*=\s*-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?[°%a-zA-Z/]*",
-        "", event_text, flags=re.IGNORECASE
+        "",
+        event_text,
+        flags=re.IGNORECASE,
     )
     event_text = event_text.strip(" |")
     if event_text:

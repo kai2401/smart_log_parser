@@ -1,4 +1,6 @@
+import logging
 import os
+import sys
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
@@ -23,17 +25,11 @@ LLM_TIMEOUT_SECONDS = 30
 # Severity order (higher = worse)
 SEVERITY_ORDER = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3, "CRITICAL": 4}
 
-import logging
-import sys
-
 # Configure centralized logging
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler("debug.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.FileHandler("debug.log"), logging.StreamHandler(sys.stdout)],
 )
 
 # Silence watchdog to prevent infinite loops with Streamlit auto-reloader
