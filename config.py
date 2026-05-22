@@ -30,10 +30,7 @@ import sys
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    handlers=[
-        logging.FileHandler("debug.log"),
-        logging.StreamHandler(sys.stdout)
-    ]
+    handlers=[logging.FileHandler("debug.log"), logging.StreamHandler(sys.stdout)],
 )
 
 # Silence watchdog to prevent infinite loops with Streamlit auto-reloader

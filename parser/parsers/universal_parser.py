@@ -2,6 +2,7 @@ from typing import Generator
 import re
 import struct
 
+
 def parse(content_bytes: bytes) -> Generator[dict, None, None]:
     """
     Byte-safe universal fallback parser.
@@ -12,7 +13,7 @@ def parse(content_bytes: bytes) -> Generator[dict, None, None]:
       4. Opaque binary via hex-dump chunking
     Yields records with fields extracted from the content.
     """
-    if b'\x00' in content_bytes:
+    if b"\x00" in content_bytes:
         # Try length-prefixed binary format first (e.g., synthetic .bin files)
         records = list(_parse_length_prefixed(content_bytes))
         if records:
@@ -27,12 +28,12 @@ def parse(content_bytes: bytes) -> Generator[dict, None, None]:
 
         # Fallback: opaque binary hex-dump
         for i in range(0, len(content_bytes), 16):
-            chunk = content_bytes[i:i+16]
-            hex_str = ' '.join(f'{b:02x}' for b in chunk)
+            chunk = content_bytes[i : i + 16]
+            hex_str = " ".join(f"{b:02x}" for b in chunk)
             yield {"raw_message": hex_str}
     else:
         # Text Branch: Force string decoding with replacement
-        content_str = content_bytes.decode('utf-8', errors='backslashreplace')
+        content_str = content_bytes.decode("utf-8", errors="backslashreplace")
         for line in content_str.splitlines():
             line = line.strip()
             if line:
@@ -50,7 +51,7 @@ def _parse_length_prefixed(content_bytes: bytes) -> list[dict]:
     The magic header is skipped by scanning for the first valid
     length-prefixed record.
     """
-    kv_pattern = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)=(.+)$')
+    kv_pattern = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_]*)=(.+)$")
     records = []
 
     # Skip magic/header bytes: scan for the first plausible length prefix
@@ -63,7 +64,7 @@ def _parse_length_prefixed(content_bytes: bytes) -> list[dict]:
     total = len(content_bytes)
     while offset + 4 <= total:
         # Read 4-byte little-endian record length
-        rec_len = struct.unpack_from('<I', content_bytes, offset)[0]
+        rec_len = struct.unpack_from("<I", content_bytes, offset)[0]
         offset += 4
 
         # Sanity check: record length must be reasonable
@@ -71,15 +72,15 @@ def _parse_length_prefixed(content_bytes: bytes) -> list[dict]:
             break
 
         # Extract the record payload
-        payload = content_bytes[offset:offset + rec_len]
+        payload = content_bytes[offset : offset + rec_len]
         offset += rec_len
 
         # Split payload on NUL bytes and extract key=value pairs
-        segments = payload.split(b'\x00')
+        segments = payload.split(b"\x00")
         record: dict = {}
         for seg in segments:
             try:
-                text = seg.decode('utf-8', errors='strict').strip()
+                text = seg.decode("utf-8", errors="strict").strip()
             except UnicodeDecodeError:
                 continue
             if not text:
@@ -105,7 +106,7 @@ def _find_first_record_offset(content_bytes: bytes) -> int:
     total = len(content_bytes)
     # Try offsets in the first 64 bytes (covers most magic headers)
     for start in range(0, min(64, total - 4)):
-        rec_len = struct.unpack_from('<I', content_bytes, start)[0]
+        rec_len = struct.unpack_from("<I", content_bytes, start)[0]
         # Check: length must be reasonable and the record must contain
         # at least one key=value pair with NUL separators.
         if rec_len < 10 or rec_len > 100_000:
@@ -113,18 +114,18 @@ def _find_first_record_offset(content_bytes: bytes) -> int:
         end = start + 4 + rec_len
         if end > total:
             continue
-        payload = content_bytes[start + 4:end]
-        if b'=' not in payload or b'\x00' not in payload:
+        payload = content_bytes[start + 4 : end]
+        if b"=" not in payload or b"\x00" not in payload:
             continue
 
         # Verify at least one valid KV pair in first record
         first_valid = False
-        for seg in payload.split(b'\x00')[:3]:
+        for seg in payload.split(b"\x00")[:3]:
             try:
-                text = seg.decode('utf-8', errors='strict')
+                text = seg.decode("utf-8", errors="strict")
             except UnicodeDecodeError:
                 continue
-            if re.match(r'^[a-zA-Z_]\w*=.+$', text):
+            if re.match(r"^[a-zA-Z_]\w*=.+$", text):
                 first_valid = True
                 break
 
@@ -133,20 +134,20 @@ def _find_first_record_offset(content_bytes: bytes) -> int:
 
         # Validate the SECOND record too (prevents false positives)
         if end + 4 <= total:
-            next_len = struct.unpack_from('<I', content_bytes, end)[0]
+            next_len = struct.unpack_from("<I", content_bytes, end)[0]
             if next_len < 10 or next_len > 100_000 or end + 4 + next_len > total:
                 continue
-            next_payload = content_bytes[end + 4:end + 4 + next_len]
-            if b'=' not in next_payload or b'\x00' not in next_payload:
+            next_payload = content_bytes[end + 4 : end + 4 + next_len]
+            if b"=" not in next_payload or b"\x00" not in next_payload:
                 continue
             # Check for valid KV in second record
             second_valid = False
-            for seg in next_payload.split(b'\x00')[:3]:
+            for seg in next_payload.split(b"\x00")[:3]:
                 try:
-                    text = seg.decode('utf-8', errors='strict')
+                    text = seg.decode("utf-8", errors="strict")
                 except UnicodeDecodeError:
                     continue
-                if re.match(r'^[a-zA-Z_]\w*=.+$', text):
+                if re.match(r"^[a-zA-Z_]\w*=.+$", text):
                     second_valid = True
                     break
             if not second_valid:
@@ -162,8 +163,8 @@ def _parse_nul_kv(content_bytes: bytes) -> list[dict]:
     Records are separated by non-printable header bytes.
     """
     # Split on NUL bytes, decode each segment
-    segments = content_bytes.split(b'\x00')
-    kv_pattern = re.compile(r'^([a-zA-Z_][a-zA-Z0-9_]*)=(.+)$')
+    segments = content_bytes.split(b"\x00")
+    kv_pattern = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_]*)=(.+)$")
 
     records = []
     current_record: dict = {}
@@ -171,7 +172,7 @@ def _parse_nul_kv(content_bytes: bytes) -> list[dict]:
     for seg in segments:
         # Skip empty or pure binary header segments
         try:
-            text = seg.decode('utf-8', errors='strict').strip()
+            text = seg.decode("utf-8", errors="strict").strip()
         except UnicodeDecodeError:
             # Binary header — flush current record and skip
             if current_record:
@@ -185,7 +186,7 @@ def _parse_nul_kv(content_bytes: bytes) -> list[dict]:
         m = kv_pattern.match(text)
         if m:
             key, value = m.group(1), m.group(2)
-            if key == 'timestamp' and current_record.get('timestamp'):
+            if key == "timestamp" and current_record.get("timestamp"):
                 # New record starts with a new timestamp
                 records.append(_finalize_record(current_record))
                 current_record = {}
@@ -205,10 +206,10 @@ def _parse_nul_kv(content_bytes: bytes) -> list[dict]:
 
 def _finalize_record(record: dict) -> dict:
     """Ensure the record has a raw_message field."""
-    if 'raw_message' not in record:
+    if "raw_message" not in record:
         # Build raw_message from event_name or all fields
-        if 'event_name' in record:
-            record['raw_message'] = record['event_name']
+        if "event_name" in record:
+            record["raw_message"] = record["event_name"]
         else:
-            record['raw_message'] = ' | '.join(f'{k}={v}' for k, v in record.items())
+            record["raw_message"] = " | ".join(f"{k}={v}" for k, v in record.items())
     return record

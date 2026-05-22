@@ -17,8 +17,12 @@ SEVERITY_RE = re.compile(
 
 # Severity tag normalisation map
 _SEV_MAP = {
-    "DBG": "DEBUG", "INF": "INFO", "WRN": "WARNING", "ERR": "ERROR",
-    "CRT": "CRITICAL", "CRIT": "CRITICAL",
+    "DBG": "DEBUG",
+    "INF": "INFO",
+    "WRN": "WARNING",
+    "ERR": "ERROR",
+    "CRT": "CRITICAL",
+    "CRIT": "CRITICAL",
 }
 
 TOOL_ID_RE = re.compile(
@@ -49,14 +53,23 @@ _SINGLE_PARAMS = (
     "rpm|torque|thickness|dose|resistance|capacitance"
 )
 PARAM_RE = re.compile(
-    r"\b(?:(?P<param_name>[a-z][a-z0-9]*(?:_[a-z][a-z0-9]*)+)|(?P<param_single>" + _SINGLE_PARAMS + r"))\s*=\s*"
+    r"\b(?:(?P<param_name>[a-z][a-z0-9]*(?:_[a-z][a-z0-9]*)+)|(?P<param_single>"
+    + _SINGLE_PARAMS
+    + r"))\s*=\s*"
     r"(?P<param_value>-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)"
     r"(?P<unit>[°%a-zA-Z/]+)?",
     re.IGNORECASE,
 )
 
 # Known non-parameter key=value fields to skip
-_SKIP_PARAMS = {"alarm_code", "recipe_id", "wafer_id", "tool_id", "event_name", "process_stage"}
+_SKIP_PARAMS = {
+    "alarm_code",
+    "recipe_id",
+    "wafer_id",
+    "tool_id",
+    "event_name",
+    "process_stage",
+}
 
 
 def parse(content: str) -> Generator[dict, None, None]:
@@ -127,7 +140,9 @@ def parse(content: str) -> Generator[dict, None, None]:
         # Remove severity tag
         event_text = re.sub(
             r"\b(?:DEBUG|DBG|INFO|INF|WARNING|WARN|WRN|ERROR|ERR|CRITICAL|CRIT|CRT|ALERT|FAULT|FAIL|FATAL)\b",
-            "", event_text, flags=re.IGNORECASE
+            "",
+            event_text,
+            flags=re.IGNORECASE,
         )
         # Split on pipe delimiter and take just the event description (first part)
         parts = event_text.split("|")

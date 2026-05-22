@@ -219,3 +219,4 @@ synthetic/samples/*
 fake*
 tool_logs.db
 debug.log
+*csv

@@ -35,7 +35,9 @@ Return ONLY the JSON array. No markdown fences, no preamble.
 def _call_chat(system: str, user: str, max_tokens: int) -> str:
     """Call the OpenAI chat completion endpoint and return the assistant content as text."""
     if not client:
-        raise Exception("OpenAI API key not configured. Please add it to your .env file.")
+        raise Exception(
+            "OpenAI API key not configured. Please add it to your .env file."
+        )
     try:
         response = client.chat.completions.create(
             model=config.OPENAI_MODEL,
@@ -162,6 +164,77 @@ def summarise_session(stats: dict, sample_entries: list[dict]) -> str:
         return _call_chat(OVERVIEW_SYSTEM, json.dumps(payload), max_tokens=400)
     except Exception as e:
         return f"LLM summary unavailable: {e}"
+
+
+INFER_COLUMNS_SYSTEM = """You are a data schema expert for semiconductor manufacturing log systems.
+You will receive a list of column names from an uploaded log file.
+Map each column name to one of these canonical field names if there is a reasonable match.
+Return ONLY a JSON object, no markdown, no explanation.
+
+Canonical fields:
+- timestamp: event time (aliases: ts, time, datetime, date, occurred_at, log_time)
+- tool_id: equipment/machine identifier (aliases: machine, host, device, equip, unit)
+- severity: log level (aliases: level, priority, sev, log_level, type)
+- event_name: human readable message (aliases: message, msg, description, text, detail)
+- recipe_id: process recipe (aliases: recipe, process, job)
+- wafer_id: wafer or lot (aliases: wafer, lot, substrate, batch)
+- parameter_name: sensor/metric name (aliases: sensor, metric, param, key)
+- parameter_value: numeric reading (aliases: value, reading, val, measurement)
+- unit: unit of measurement (aliases: units, uom)
+- process_stage: process phase (aliases: stage, phase, step, operation)
+
+Rules:
+- Only map columns where you are confident (>80%)
+- Unmapped columns should be omitted from the output entirely
+- If a column clearly does not match any canonical field, omit it
+- Return format: {"raw_column_name": "canonical_field_name", ...}"""
+
+_CANONICAL_FIELDS = {
+    "timestamp",
+    "tool_id",
+    "severity",
+    "event_name",
+    "recipe_id",
+    "wafer_id",
+    "parameter_name",
+    "parameter_value",
+    "unit",
+    "process_stage",
+}
+
+
+def infer_column_mapping(columns: list[str]) -> dict[str, str]:
+    """
+    Use the LLM to map raw column names to canonical schema fields.
+    Returns an empty dict on any failure — callers must handle this gracefully.
+    """
+    if not columns:
+        return {}
+    try:
+        user_msg = json.dumps(columns)
+        raw = _call_chat(INFER_COLUMNS_SYSTEM, user_msg, max_tokens=300)
+        raw = (
+            raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+        )
+        result = json.loads(raw)
+        if not isinstance(result, dict):
+            return {}
+        # Validate: discard entries with non-canonical values or non-string keys
+        validated: dict[str, str] = {}
+        seen_values: set[str] = set()
+        for raw_col, canonical in result.items():
+            if not isinstance(raw_col, str) or not isinstance(canonical, str):
+                continue
+            if canonical not in _CANONICAL_FIELDS:
+                continue
+            if canonical in seen_values:
+                continue  # keep first, discard duplicates
+            validated[raw_col] = canonical
+            seen_values.add(canonical)
+        return validated
+    except Exception:
+        logger.debug("infer_column_mapping failed — falling back to hardcoded aliases")
+        return {}
 
 
 def generate_text(

@@ -51,6 +51,7 @@ No markdown fences, no preamble, no explanation — just the JSON array.
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _prepare_sample(content_bytes: bytes, max_bytes: int = 4096) -> str:
     """
     Prepare a human-readable sample from raw bytes.
@@ -73,7 +74,7 @@ def _prepare_sample(content_bytes: bytes, max_bytes: int = 4096) -> str:
     lines = []
     lines.append(f"=== FILE SAMPLE (binary, {len(sample)} bytes) ===")
     for offset in range(0, len(sample), 16):
-        chunk = sample[offset:offset + 16]
+        chunk = sample[offset : offset + 16]
         hex_part = " ".join(f"{b:02x}" for b in chunk)
         ascii_part = "".join(chr(b) if 32 <= b < 127 else "." for b in chunk)
         lines.append(f"{offset:08x}  {hex_part:<48s}  |{ascii_part}|")
@@ -94,6 +95,7 @@ def _call_llm(sample_text: str) -> str:
     Reuses the existing client from llm.analyzer.
     """
     from llm.analyzer import _call_chat
+
     return _call_chat(_SYSTEM_PROMPT, sample_text, max_tokens=4096)
 
 
@@ -105,11 +107,7 @@ def _parse_llm_response(raw_response: str) -> list[dict]:
     # Strip markdown code fences if present
     cleaned = raw_response.strip()
     cleaned = (
-        cleaned
-        .removeprefix("```json")
-        .removeprefix("```")
-        .removesuffix("```")
-        .strip()
+        cleaned.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
     )
 
     # Try parsing directly
@@ -143,6 +141,7 @@ def _parse_llm_response(raw_response: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def parse(content_bytes: bytes) -> Generator[dict, None, None]:
     """
@@ -180,4 +179,5 @@ def parse(content_bytes: bytes) -> Generator[dict, None, None]:
 def _fallback(content_bytes: bytes) -> Generator[dict, None, None]:
     """Fall back to the universal byte-safe parser."""
     from parser.parsers import universal_parser
+
     yield from universal_parser.parse(content_bytes)

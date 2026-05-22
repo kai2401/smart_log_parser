@@ -36,6 +36,7 @@ FORMAT_PARSERS = {
 # Guardrails
 # ---------------------------------------------------------------------------
 
+
 def is_valid_log_file(content_bytes: bytes, filename: str) -> bool:
     """
     Reject obviously invalid files before they enter the pipeline.
@@ -45,17 +46,49 @@ def is_valid_log_file(content_bytes: bytes, filename: str) -> bool:
     fname_lower = filename.lower()
 
     # 1. Hard rejection of non-log binaries and documents
-    if fname_lower.endswith(('.png', '.jpg', '.jpeg', '.gif', '.bmp', '.svg', '.ico',
-                             '.pdf', '.docx', '.xlsx', '.pptx',
-                             '.exe', '.dll', '.msi',
-                             '.zip', '.tar', '.gz', '.7z', '.rar',
-                             '.mp3', '.mp4', '.avi', '.mov', '.wav')):
+    if fname_lower.endswith(
+        (
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".bmp",
+            ".svg",
+            ".ico",
+            ".pdf",
+            ".docx",
+            ".xlsx",
+            ".pptx",
+            ".exe",
+            ".dll",
+            ".msi",
+            ".zip",
+            ".tar",
+            ".gz",
+            ".7z",
+            ".rar",
+            ".mp3",
+            ".mp4",
+            ".avi",
+            ".mov",
+            ".wav",
+        )
+    ):
         return False
 
     # 2. Fast-pass for standard and known proprietary extensions
     valid_extensions = (
-        '.log', '.txt', '.csv', '.json', '.xml', '.tsv',
-        '.bin', '.dat', '.raw', '.prc', '.parquet',
+        ".log",
+        ".txt",
+        ".csv",
+        ".json",
+        ".xml",
+        ".tsv",
+        ".bin",
+        ".dat",
+        ".raw",
+        ".prc",
+        ".parquet",
     )
     has_valid_ext = fname_lower.endswith(valid_extensions)
 
@@ -64,11 +97,11 @@ def is_valid_log_file(content_bytes: bytes, filename: str) -> bool:
 
     # Heuristic A: Binary payload with null bytes — proprietary fab formats
     # are often binary; pass them through to the parser pipeline.
-    if b'\x00' in sample_bytes:
+    if b"\x00" in sample_bytes:
         return True
 
     # 4. Text-based heuristics
-    sample = sample_bytes.decode('utf-8', errors='ignore')
+    sample = sample_bytes.decode("utf-8", errors="ignore")
 
     # Heuristic B: Emoji rejection (fab logs should have essentially none)
     if len(re.findall(r"[\U00010000-\U0010ffff]", sample)) > 2:
@@ -96,26 +129,53 @@ def is_valid_log_file(content_bytes: bytes, filename: str) -> bool:
         return False
 
     # 5. Semiconductor fab relevance gate
-    extended = content_bytes[:4096].decode('utf-8', errors='ignore').lower()
+    extended = content_bytes[:4096].decode("utf-8", errors="ignore").lower()
     fab_keywords = [
-        r"\btool[_\s]?id\b", r"\bmachine", r"\bequip", r"\bchamber\b",
-        r"\bwafer\b", r"\brecipe\b", r"\bsetpoint\b", r"\blot",
-        r"\bpressure\b", r"\btemperature\b", r"\bvacuum\b", r"\btorr\b",
-        r"\brpm\b", r"\bsccm\b", r"\bvoltage\b", r"\bcurrent\b", r"\bpower\b",
+        r"\btool[_\s]?id\b",
+        r"\bmachine",
+        r"\bequip",
+        r"\bchamber\b",
+        r"\bwafer\b",
+        r"\brecipe\b",
+        r"\bsetpoint\b",
+        r"\blot",
+        r"\bpressure\b",
+        r"\btemperature\b",
+        r"\bvacuum\b",
+        r"\btorr\b",
+        r"\brpm\b",
+        r"\bsccm\b",
+        r"\bvoltage\b",
+        r"\bcurrent\b",
+        r"\bpower\b",
         r"\b(info|warn|error|critical|debug|fault|alarm)\b",
         r"\b\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}",
-        r"\btimestamp\b", r"\bseverity\b", r"\bsensor\b",
-        r"\betch\b", r"\bdeposit\b", r"\bcvd\b", r"\bpvd\b",
-        r"\bsubstrate\b", r"\bfoup\b", r"\bloadlock\b",
-        r"\bmaintenan", r"\bcalibrat", r"\brf[_\s]?power\b",
+        r"\btimestamp\b",
+        r"\bseverity\b",
+        r"\bsensor\b",
+        r"\betch\b",
+        r"\bdeposit\b",
+        r"\bcvd\b",
+        r"\bpvd\b",
+        r"\bsubstrate\b",
+        r"\bfoup\b",
+        r"\bloadlock\b",
+        r"\bmaintenan",
+        r"\bcalibrat",
+        r"\brf[_\s]?power\b",
     ]
     fab_hits = sum(1 for kw in fab_keywords if re.search(kw, extended))
     if fab_hits < 2:
         # Last chance: valid extension + structured data markers
         if has_valid_ext:
-            markers = [r"\d{4}-\d{2}-\d{2}", r"\{.*\}", r"<.*>",
-                       r"ERROR|INFO|WARN|DEBUG", r"0x[0-9a-fA-F]+",
-                       r"\[.*\]"]
+            markers = [
+                r"\d{4}-\d{2}-\d{2}",
+                r"\{.*\}",
+                r"<.*>",
+                r"ERROR|INFO|WARN|DEBUG",
+                r"0x[0-9a-fA-F]+",
+                r"\[.*\]",
+            ]
             if any(re.search(m, sample, re.IGNORECASE) for m in markers):
                 return True
         return False
@@ -126,6 +186,7 @@ def is_valid_log_file(content_bytes: bytes, filename: str) -> bool:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def parse_log(
     content_bytes: bytes,
@@ -148,7 +209,7 @@ def parse_log(
         return [], [f"Invalid file format: {filename}"]
 
     # ── Detect if this is a recipe file ─────────────────────────────────
-    is_recipe = 'recipe' in filename.lower()
+    is_recipe = "recipe" in filename.lower()
 
     # ── Parquet fast-path (binary, needs special reader) ────────────────
     if filename.lower().endswith(".parquet"):
@@ -182,6 +243,7 @@ def parse_log(
         elif fmt == "llm_parsed":
             # Check for saved format template first (skips LLM + review)
             from database import db as _db
+
             file_sig = _db.compute_file_signature(content_bytes, filename)
             template = _db.get_format_template(file_sig)
 
@@ -193,6 +255,7 @@ def parse_log(
                 )
                 # Use universal parser to extract raw records, then apply template mapping
                 from parser.parsers import universal_parser
+
                 raw_records = list(universal_parser.parse(content_bytes))
                 field_mapping = template.get("field_mapping", {})
                 for i, raw in enumerate(raw_records):
@@ -244,6 +307,7 @@ def parse_log(
             )
             # Ultimate fallback: universal parser
             from parser.parsers import universal_parser
+
             raw_records = list(universal_parser.parse(content_bytes))
             for i, raw in enumerate(raw_records):
                 try:
@@ -270,6 +334,7 @@ def parse_log(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
+
 def _detect_format_smart(
     filename: str,
     content_bytes: bytes,
@@ -290,14 +355,20 @@ def _detect_format_smart(
         # Binary files: check for NUL-byte content FIRST (before text KV)
         # Binary formats embed key=value strings that trick the text KV heuristic,
         # but the text KV parser can't handle binary framing (length prefixes, NUL seps).
-        if b'\x00' in content_bytes[:1024]:
+        if b"\x00" in content_bytes[:1024]:
             from parser.parsers import universal_parser
+
             # Try length-prefixed binary first, then NUL-KV
-            test_records = list(universal_parser._parse_length_prefixed(content_bytes[:8192]))
+            test_records = list(
+                universal_parser._parse_length_prefixed(content_bytes[:8192])
+            )
             if not test_records:
-                test_records = list(universal_parser._parse_nul_kv(content_bytes[:4096]))
+                test_records = list(
+                    universal_parser._parse_nul_kv(content_bytes[:4096])
+                )
             if test_records and any(
-                len(r) > 1 for r in test_records  # has fields beyond raw_message
+                len(r) > 1
+                for r in test_records  # has fields beyond raw_message
             ):
                 return "universal"
             # NUL-KV extraction failed — use LLM to discover the format
@@ -351,11 +422,7 @@ def _build_entry(normalised: dict, is_recipe: bool) -> LogEntry:
     Filters keys to only those that exist on the dataclass.
     """
     return LogEntry(
-        **{
-            k: v
-            for k, v in normalised.items()
-            if k in LogEntry.__dataclass_fields__
-        }
+        **{k: v for k, v in normalised.items() if k in LogEntry.__dataclass_fields__}
     )
 
 

@@ -22,6 +22,7 @@ import time
 sys.path.insert(0, os.path.dirname(__file__))
 
 import logging
+
 logger = logging.getLogger(__name__)
 
 from database import db
@@ -30,26 +31,27 @@ from parser import parse_log, is_valid_log_file
 
 # ── ANSI colors for terminal output ────────────────────────────────────────
 
+
 class C:
-    RESET   = "\033[0m"
-    BOLD    = "\033[1m"
-    DIM     = "\033[2m"
-    RED     = "\033[91m"
-    GREEN   = "\033[92m"
-    YELLOW  = "\033[93m"
-    BLUE    = "\033[94m"
-    CYAN    = "\033[96m"
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+    RED = "\033[91m"
+    GREEN = "\033[92m"
+    YELLOW = "\033[93m"
+    BLUE = "\033[94m"
+    CYAN = "\033[96m"
     MAGENTA = "\033[95m"
-    WHITE   = "\033[97m"
+    WHITE = "\033[97m"
 
     @staticmethod
     def severity(sev: str) -> str:
         return {
             "CRITICAL": C.RED + C.BOLD,
-            "ERROR":    C.RED,
-            "WARNING":  C.YELLOW,
-            "INFO":     C.GREEN,
-            "DEBUG":    C.DIM,
+            "ERROR": C.RED,
+            "WARNING": C.YELLOW,
+            "INFO": C.GREEN,
+            "DEBUG": C.DIM,
         }.get(sev, C.WHITE)
 
 
@@ -59,7 +61,9 @@ def _print_header(text: str):
     print(f"{C.CYAN}{C.BOLD}{'━' * 60}{C.RESET}\n")
 
 
-def _print_table(headers: list[str], rows: list[list[str]], max_widths: list[int] | None = None):
+def _print_table(
+    headers: list[str], rows: list[list[str]], max_widths: list[int] | None = None
+):
     """Print a formatted ASCII table."""
     if not rows:
         print(f"  {C.DIM}(no data){C.RESET}")
@@ -79,7 +83,9 @@ def _print_table(headers: list[str], rows: list[list[str]], max_widths: list[int
                 widths[i] = min(widths[i], mw)
 
     # Header
-    header_line = "  ".join(f"{C.BOLD}{h:<{widths[i]}}{C.RESET}" for i, h in enumerate(headers))
+    header_line = "  ".join(
+        f"{C.BOLD}{h:<{widths[i]}}{C.RESET}" for i, h in enumerate(headers)
+    )
     print(f"  {header_line}")
     sep = "  ".join("─" * w for w in widths)
     print(f"  {sep}")
@@ -91,12 +97,13 @@ def _print_table(headers: list[str], rows: list[list[str]], max_widths: list[int
             s = str(cell)
             w = widths[i] if i < len(widths) else 20
             if len(s) > w:
-                s = s[:w - 1] + "…"
+                s = s[: w - 1] + "…"
             cells.append(f"{s:<{w}}")
         print(f"  {'  '.join(cells)}")
 
 
 # ── Subcommands ────────────────────────────────────────────────────────────
+
 
 def cmd_ingest(args):
     """Parse and store log files."""
@@ -134,10 +141,12 @@ def cmd_ingest(args):
                 sevs[e.severity] = sevs.get(e.severity, 0) + 1
 
             print(f"  {C.GREEN}✓{C.RESET} {C.BOLD}{filename}{C.RESET}")
-            print(f"    Format: {C.CYAN}{fmt}{C.RESET}  |  "
-                  f"Records: {C.BOLD}{n}{C.RESET}  |  "
-                  f"Tools: {tools}  |  "
-                  f"Time: {elapsed:.2f}s")
+            print(
+                f"    Format: {C.CYAN}{fmt}{C.RESET}  |  "
+                f"Records: {C.BOLD}{n}{C.RESET}  |  "
+                f"Tools: {tools}  |  "
+                f"Time: {elapsed:.2f}s"
+            )
 
             sev_parts = []
             for sev in ["CRITICAL", "ERROR", "WARNING", "INFO", "DEBUG"]:
@@ -165,12 +174,16 @@ def cmd_stats(args):
     _print_header(title)
 
     metrics = [
-        ("Total Records",  str(stats["total"]),    C.BOLD),
-        ("Errors",          str(stats["errors"]),   C.RED if stats["errors"] else C.GREEN),
-        ("Warnings",        str(stats["warnings"]), C.YELLOW if stats["warnings"] else C.GREEN),
-        ("Alarms",          str(stats["alarms"]),   C.RED if stats["alarms"] else C.GREEN),
-        ("Unique Tools",    str(stats["tools"]),    C.CYAN),
-        ("Recipe Entries",  str(stats["recipes"]),  C.BLUE),
+        ("Total Records", str(stats["total"]), C.BOLD),
+        ("Errors", str(stats["errors"]), C.RED if stats["errors"] else C.GREEN),
+        (
+            "Warnings",
+            str(stats["warnings"]),
+            C.YELLOW if stats["warnings"] else C.GREEN,
+        ),
+        ("Alarms", str(stats["alarms"]), C.RED if stats["alarms"] else C.GREEN),
+        ("Unique Tools", str(stats["tools"]), C.CYAN),
+        ("Recipe Entries", str(stats["recipes"]), C.BLUE),
     ]
 
     for label, value, color in metrics:
@@ -227,16 +240,18 @@ def cmd_query(args):
     for r in rows:
         sev = r.get("severity", "?")
         sev_color = C.severity(sev)
-        table_rows.append([
-            r.get("timestamp", "?")[:19],
-            r.get("tool_id", "?"),
-            f"{sev_color}{sev}{C.RESET}",
-            r.get("event_name", r.get("raw_message", "?"))[:50],
-            r.get("parameter_name", "") or "",
-            str(r.get("parameter_value", "")) if r.get("parameter_value") else "",
-            r.get("unit", "") or "",
-            r.get("wafer_id", "") or "",
-        ])
+        table_rows.append(
+            [
+                r.get("timestamp", "?")[:19],
+                r.get("tool_id", "?"),
+                f"{sev_color}{sev}{C.RESET}",
+                r.get("event_name", r.get("raw_message", "?"))[:50],
+                r.get("parameter_name", "") or "",
+                str(r.get("parameter_value", "")) if r.get("parameter_value") else "",
+                r.get("unit", "") or "",
+                r.get("wafer_id", "") or "",
+            ]
+        )
 
     _print_table(
         ["Timestamp", "Tool", "Severity", "Event", "Param", "Value", "Unit", "Wafer"],
@@ -267,6 +282,7 @@ def cmd_export(args):
             json.dump(rows, f, indent=2, default=str)
     elif output.endswith(".csv"):
         import csv
+
         if rows:
             keys = list(rows[0].keys())
             with open(output, "w", newline="") as f:
@@ -277,7 +293,9 @@ def cmd_export(args):
         print(f"  {C.RED}Unsupported format. Use .csv or .json{C.RESET}")
         return
 
-    print(f"  {C.GREEN}✓{C.RESET} Exported {len(rows)} records to {C.BOLD}{output}{C.RESET}")
+    print(
+        f"  {C.GREEN}✓{C.RESET} Exported {len(rows)} records to {C.BOLD}{output}{C.RESET}"
+    )
 
 
 def cmd_analyze(args):
@@ -299,6 +317,7 @@ def cmd_analyze(args):
 
     try:
         from llm import analyzer
+
         stats = db.get_summary_stats(source_filename=args.file)
 
         if args.question:
@@ -311,7 +330,12 @@ def cmd_analyze(args):
                 print(f"  {line}")
         else:
             # Default: summarise health
-            messages = [{"role": "user", "content": "Summarise the overall health of these logs. Highlight critical issues, recurring patterns, and recommended actions."}]
+            messages = [
+                {
+                    "role": "user",
+                    "content": "Summarise the overall health of these logs. Highlight critical issues, recurring patterns, and recommended actions.",
+                }
+            ]
             response = analyzer.chat_with_logs(messages, stats, rows[:30])
             print(f"\n  {C.BOLD}Health Summary:{C.RESET}")
             for line in response.split("\n"):
@@ -337,12 +361,14 @@ def cmd_templates(args):
     table_rows = []
     for t in templates:
         mapping_keys = list(t.get("field_mapping", {}).keys())
-        table_rows.append([
-            t["name"],
-            t["file_signature"],
-            ", ".join(mapping_keys[:5]),
-            t.get("created_at", "?")[:19],
-        ])
+        table_rows.append(
+            [
+                t["name"],
+                t["file_signature"],
+                ", ".join(mapping_keys[:5]),
+                t.get("created_at", "?")[:19],
+            ]
+        )
 
     _print_table(
         ["Name", "Signature", "Fields", "Created"],
@@ -387,13 +413,16 @@ def cmd_generate(args):
     _print_header("Generating Synthetic Logs")
 
     from synthetic.generator import generate_sample_files
+
     output_dir = args.output or "synthetic/samples"
     files = generate_sample_files(output_dir)
 
-    print(f"\n  {C.GREEN}✓{C.RESET} Generated {len(files)} sample files in {C.BOLD}{output_dir}/{C.RESET}")
+    print(
+        f"\n  {C.GREEN}✓{C.RESET} Generated {len(files)} sample files in {C.BOLD}{output_dir}/{C.RESET}"
+    )
 
     if args.ingest:
-        print(f"\n  Ingesting generated files...")
+        print("\n  Ingesting generated files...")
         total = 0
         for fmt, path in files.items():
             with open(path, "rb") as f:
@@ -403,13 +432,16 @@ def cmd_generate(args):
             if entries:
                 n = db.insert_entries(entries)
                 total += n
-                print(f"    {C.GREEN}✓{C.RESET} {filename}: {n} records ({entries[0].source_format})")
+                print(
+                    f"    {C.GREEN}✓{C.RESET} {filename}: {n} records ({entries[0].source_format})"
+                )
         print(f"\n  {C.BOLD}Total ingested: {total} records{C.RESET}")
 
     print()
 
 
 # ── CLI entrypoint ─────────────────────────────────────────────────────────
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -434,7 +466,9 @@ def main():
     # ── ingest ──
     p_ingest = subparsers.add_parser("ingest", help="Parse and store log files")
     p_ingest.add_argument("files", nargs="+", help="Log file paths")
-    p_ingest.add_argument("-v", "--verbose", action="store_true", help="Show parser warnings")
+    p_ingest.add_argument(
+        "-v", "--verbose", action="store_true", help="Show parser warnings"
+    )
 
     # ── stats ──
     p_stats = subparsers.add_parser("stats", help="Show summary statistics")
@@ -443,13 +477,17 @@ def main():
     # ── query ──
     p_query = subparsers.add_parser("query", help="Query stored log entries")
     p_query.add_argument("--tool", help="Filter by tool_id")
-    p_query.add_argument("--severity", help="Filter by severity (INFO/WARNING/ERROR/CRITICAL)")
+    p_query.add_argument(
+        "--severity", help="Filter by severity (INFO/WARNING/ERROR/CRITICAL)"
+    )
     p_query.add_argument("--type", help="Filter by log_type")
     p_query.add_argument("--start", help="Start timestamp (ISO format)")
     p_query.add_argument("--end", help="End timestamp (ISO format)")
     p_query.add_argument("--search", help="Full-text search in messages")
     p_query.add_argument("--file", help="Filter by source filename")
-    p_query.add_argument("--limit", type=int, default=50, help="Max records (default: 50)")
+    p_query.add_argument(
+        "--limit", type=int, default=50, help="Max records (default: 50)"
+    )
 
     # ── export ──
     p_export = subparsers.add_parser("export", help="Export to CSV or JSON")
@@ -476,8 +514,12 @@ def main():
 
     # ── generate ──
     p_generate = subparsers.add_parser("generate", help="Generate synthetic demo logs")
-    p_generate.add_argument("--output", help="Output directory (default: synthetic/samples)")
-    p_generate.add_argument("--ingest", action="store_true", help="Also ingest generated files")
+    p_generate.add_argument(
+        "--output", help="Output directory (default: synthetic/samples)"
+    )
+    p_generate.add_argument(
+        "--ingest", action="store_true", help="Also ingest generated files"
+    )
 
     args = parser.parse_args()
 
