@@ -9,6 +9,9 @@ from typing import Any
 from datetime import datetime
 from parser.schema import LogEntry, RecipeEntry
 import config
+import logging
+
+logger = logging.getLogger(__name__)
 
 CREATE_LOG_SQL = """
 CREATE TABLE IF NOT EXISTS log_entries (
@@ -100,6 +103,7 @@ def init_db() -> None:
         for idx in INDEX_SQL:
             conn.execute(idx)
         conn.commit()
+    logger.debug("Database initialized with required tables and indexes.")
 
 
 def _ensure_column(
@@ -116,6 +120,8 @@ def insert_entries(entries: list[LogEntry]) -> int:
     """Insert a batch of log entries. Returns count inserted."""
     if not entries:
         return 0
+
+    logger.debug(f"Inserting {len(entries)} log entries into database.")
 
     cols = [f for f in LogEntry.__dataclass_fields__]
     placeholders = ", ".join("?" * len(cols))
@@ -179,6 +185,7 @@ def query_entries(
     source_filename: str | None = None,
     limit: int = 1000,
 ) -> list[dict]:
+    logger.debug(f"Querying entries with tool_id={tool_id}, severity={severity}, limit={limit}")
     conditions = []
     params: list[Any] = []
 

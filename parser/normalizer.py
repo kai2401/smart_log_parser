@@ -9,6 +9,9 @@ import re
 from datetime import datetime
 from typing import Any
 from dateutil import parser as dateparser
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Drain3 for template mining (used internally, not stored)
 try:
@@ -311,6 +314,7 @@ def normalise_record(
     STRUCTURED_FORMATS = {"json", "xml", "csv", "parquet", "llm_parsed", "universal"}
 
     if source_format in STRUCTURED_FORMATS:
+        logger.debug(f"Processing structured format for {filename}")
         # ── STRUCTURED PATH: full alias-based field extraction ─────────
         raw_msg_candidates = []
 
@@ -420,6 +424,7 @@ def normalise_record(
             out["log_type"] = "recipe"
 
     else:
+        logger.debug(f"Processing unstructured format bypass for {filename}")
         # ── UNSTRUCTURED PATH (Syslog, KV, Text, Binary, Universal): ──
         # Trust fields the parser explicitly extracted (tool_id, timestamp,
         # severity are already in base assignment). Stash everything else

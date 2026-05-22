@@ -21,6 +21,9 @@ import time
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+import logging
+logger = logging.getLogger(__name__)
+
 from database import db
 from parser import parse_log, is_valid_log_file
 
@@ -97,6 +100,7 @@ def _print_table(headers: list[str], rows: list[list[str]], max_widths: list[int
 
 def cmd_ingest(args):
     """Parse and store log files."""
+    logger.debug(f"Executing CLI ingest command for files: {args.files}")
     db.init_db()
     _print_header("Log Ingestion")
 
@@ -153,6 +157,7 @@ def cmd_ingest(args):
 
 def cmd_stats(args):
     """Show summary statistics."""
+    logger.debug(f"Executing CLI stats command with file filter: {args.file}")
     db.init_db()
     stats = db.get_summary_stats(source_filename=args.file)
 
@@ -196,6 +201,7 @@ def cmd_stats(args):
 
 def cmd_query(args):
     """Query stored log entries."""
+    logger.debug(f"Executing CLI query command with args: {args}")
     db.init_db()
 
     rows = db.query_entries(
@@ -358,6 +364,7 @@ def cmd_templates(args):
 
 def cmd_clear(args):
     """Clear all stored data."""
+    logger.debug(f"Executing CLI clear command (file={args.file}, yes={args.yes})")
     db.init_db()
 
     if not args.yes:

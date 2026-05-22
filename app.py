@@ -17,11 +17,15 @@ import re
 import time
 import uuid
 import json
+from streamlit_autorefresh import st_autorefresh
 
 from worker import start_background_parsing
 
 import sys
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -248,6 +252,7 @@ with st.sidebar:
     st.divider()
     st.markdown("### 🗄️ Database")
     if st.button("Clear All Data", width="stretch"):
+        logger.debug("User requested to clear all database data via app UI.")
         db.clear_all()
         st.session_state.parsed_filenames = []
         st.session_state.last_filename = None
@@ -297,6 +302,7 @@ if uploaded_files:
             continue
 
         job_id = str(uuid.uuid4())
+        logger.debug(f"Creating new job {job_id} for uploaded file {filename}")
         db.create_job(job_id, filename)
         start_background_parsing(content_bytes, filename, job_id)
         st.session_state.active_job_ids.append(job_id)
@@ -367,17 +373,21 @@ with col_h1:
     st.caption("Semiconductor Equipment Log Intelligence Platform")
 with col_h2:
     active_file = st.session_state.last_filename
-    if active_file:
-        st.markdown(f"**Active file:** `{active_file}`")
-        all_files = st.session_state.parsed_filenames
-        if len(all_files) > 1:
-            selected_file = st.selectbox(
-                "Switch file", all_files, index=all_files.index(active_file)
+    if active_file or st.session_state.parsed_filenames:
+        display_name = active_file if active_file else "All Files"
+        st.markdown(f"**Active view:** `{display_name}`")
+        
+        all_opts = ["All Files"] + st.session_state.parsed_filenames
+        current_opt = active_file if active_file else "All Files"
+        
+        if len(st.session_state.parsed_filenames) > 1:
+            selected_opt = st.selectbox(
+                "Switch file view", all_opts, index=all_opts.index(current_opt) if current_opt in all_opts else 0
             )
-            if selected_file != active_file:
-                st.session_state.last_filename = selected_file
+            if selected_opt != current_opt:
+                st.session_state.last_filename = None if selected_opt == "All Files" else selected_opt
                 st.session_state.chat_messages = []  # clear chat on file switch
-                active_file = selected_file
+                active_file = st.session_state.last_filename
 
 # ---------------------------------------------------------------------------
 # Summary cards
@@ -439,6 +449,7 @@ _tab_names = [
     "📊 Analytics",
     "🤖 AI Insights",
     "📖 Schema Reference",
+    "📡 Live View",
 ]
 if _has_pending_review:
     _tab_names.insert(0, "🔍 Review")
@@ -447,10 +458,10 @@ _tabs = st.tabs(_tab_names)
 
 # Assign tabs dynamically
 if _has_pending_review:
-    tab_review, tab1, tab2, tab3, tab4 = _tabs
+    tab_review, tab1, tab2, tab3, tab4, tab5 = _tabs
 else:
     tab_review = None
-    tab1, tab2, tab3, tab4 = _tabs
+    tab1, tab2, tab3, tab4, tab5 = _tabs
 
 # ─────────────────────── TAB 0: Review (HITL) ──────────────────────────────
 if tab_review is not None:
@@ -1261,3 +1272,46 @@ with tab4:
     ]
     ac_df = pd.DataFrame(ac, columns=["FR", "Requirement", "Acceptance Criterion"])
     st.dataframe(ac_df, width="stretch", hide_index=True)
+
+# ─────────────────────── TAB 5: Live View ──────────────────────────────────
+with tab5:
+    st.markdown("### 📡 Live MQTT Ingestion")
+    st.caption("Real-time view of logs streaming from the fab machines via MQTT.")
+    
+    # Auto-refresh the page every 2 seconds
+    st_autorefresh(interval=2000, limit=None, key="live_view_refresh")
+    
+    # Query the latest MQTT logs (filename starts with mqtt_)
+    live_rows = db.query_entries(
+        tool_id=None,
+        severity=None,
+        log_type=None,
+        source_filename=None,
+        limit=100
+    )
+    
+    mqtt_rows = [r for r in live_rows if r.get("source_filename", "").startswith("mqtt_")]
+    
+    if not mqtt_rows:
+        st.info("No live MQTT logs found yet. Ensure the Mosquitto broker and `mqtt_server.py` are running, and the Pi is sending data.")
+    else:
+        live_df = pd.DataFrame(mqtt_rows)
+        if "parameter_value" in live_df.columns:
+            live_df["parameter_value"] = pd.to_numeric(live_df["parameter_value"], errors="coerce")
+            
+        # Ensure all columns exist to prevent KeyError
+        display_columns = ["timestamp", "tool_id", "severity", "event_name", "parameter_name", "parameter_value", "unit", "wafer_id", "recipe_id"]
+        for col in display_columns:
+            if col not in live_df.columns:
+                live_df[col] = None
+                
+        # Display latest entry prominently
+        latest = live_df.iloc[0]
+        st.success(f"**Latest Activity ({latest['timestamp']}):** [{latest['tool_id']}] {latest['severity']} - {latest.get('event_name', '')}")
+        
+        # Display data table
+        st.dataframe(
+            live_df[display_columns],
+            use_container_width=True,
+            hide_index=True
+        )

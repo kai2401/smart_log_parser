@@ -8,12 +8,17 @@ from threading import Thread
 
 from parser import parse_log
 from database import db
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def _run_job(content_bytes: bytes, filename: str, job_id: str) -> None:
     try:
+        logger.debug(f"Worker starting background parse job for {filename} (job_id: {job_id})")
         db.update_job(job_id, status="PROCESSING", progress=5)
         entries, warnings = parse_log(content_bytes, filename)
+        logger.debug(f"Worker extracted {len(entries)} entries from {filename}")
 
         # Check if any entries came from LLM-assisted parsing
         # and need human review before committing
@@ -41,6 +46,7 @@ def _run_job(content_bytes: bytes, filename: str, job_id: str) -> None:
                 total_records=n,
             )
     except Exception as exc:
+        logger.error(f"Worker exception during log ingestion for {filename}: {exc}")
         db.update_job(
             job_id,
             status="FAILED",
