@@ -16,7 +16,6 @@ import streamlit.components.v1
 import time
 import uuid
 import json
-from streamlit_autorefresh import st_autorefresh
 
 from worker import start_background_parsing
 
@@ -1414,55 +1413,55 @@ with tab4:
 with tab5:
     st.markdown("### 📡 Live MQTT Ingestion")
     st.caption("Real-time view of logs streaming from the fab machines via MQTT.")
-
-    # Auto-refresh the page every 2 seconds
-    st_autorefresh(interval=2000, limit=None, key="live_view_refresh")
-
-    # Query the latest MQTT logs (filename starts with mqtt_)
-    live_rows = db.query_entries(
-        tool_id=None, severity=None, log_type=None, source_filename=None, limit=100
-    )
-
-    mqtt_rows = [
-        r for r in live_rows if r.get("source_filename", "").startswith("mqtt_")
-    ]
-
-    if not mqtt_rows:
-        st.info(
-            "No live MQTT logs found yet. Ensure the Mosquitto broker "
-            "and `mqtt_server.py` are running, and the Pi is sending data."
+    @st.fragment(run_every="2s")
+    def live_view_auto_refresh():
+        # Query the latest MQTT logs (filename starts with mqtt_)
+        live_rows = db.query_entries(
+            tool_id=None, severity=None, log_type=None, source_filename=None, limit=100
         )
-    else:
-        live_df = pd.DataFrame(mqtt_rows)
-        if "parameter_value" in live_df.columns:
-            live_df["parameter_value"] = pd.to_numeric(
-                live_df["parameter_value"], errors="coerce"
-            )
 
-        # Ensure all columns exist to prevent KeyError
-        display_columns = [
-            "timestamp",
-            "tool_id",
-            "severity",
-            "event_name",
-            "parameter_name",
-            "parameter_value",
-            "unit",
-            "wafer_id",
-            "recipe_id",
+        mqtt_rows = [
+            r for r in live_rows if r.get("source_filename", "").startswith("mqtt_")
         ]
-        for col in display_columns:
-            if col not in live_df.columns:
-                live_df[col] = None
 
-        # Display latest entry prominently
-        latest = live_df.iloc[0]
-        activity = (
-            f"**Latest Activity ({latest['timestamp']}):**"
-            f" [{latest['tool_id']}] {latest['severity']}"
-            f" - {latest.get('event_name', '')}"
-        )
-        st.success(activity)
+        if not mqtt_rows:
+            st.info(
+                "No live MQTT logs found yet. Ensure the Mosquitto broker "
+                "and `mqtt_server.py` are running, and the Pi is sending data."
+            )
+        else:
+            live_df = pd.DataFrame(mqtt_rows)
+            if "parameter_value" in live_df.columns:
+                live_df["parameter_value"] = pd.to_numeric(
+                    live_df["parameter_value"], errors="coerce"
+                )
 
-        # Display data table
-        st.dataframe(live_df[display_columns], width="stretch", hide_index=True)
+            # Ensure all columns exist to prevent KeyError
+            display_columns = [
+                "timestamp",
+                "tool_id",
+                "severity",
+                "event_name",
+                "parameter_name",
+                "parameter_value",
+                "unit",
+                "wafer_id",
+                "recipe_id",
+            ]
+            for col in display_columns:
+                if col not in live_df.columns:
+                    live_df[col] = None
+
+            # Display latest entry prominently
+            latest = live_df.iloc[0]
+            activity = (
+                f"**Latest Activity ({latest['timestamp']}):**"
+                f" [{latest['tool_id']}] {latest['severity']}"
+                f" - {latest.get('event_name', '')}"
+            )
+            st.success(activity)
+
+            # Display data table
+            st.dataframe(live_df[display_columns], width="stretch", hide_index=True)
+
+    live_view_auto_refresh()
