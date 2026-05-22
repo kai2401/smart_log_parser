@@ -28,6 +28,9 @@ logger = logging.getLogger(__name__)
 from database import db  # noqa: E402
 from parser import parse_log, is_valid_log_file  # noqa: E402
 
+# Silence debug/info logs for CLI to keep output clean
+logging.getLogger().setLevel(logging.WARNING)
+
 
 # ── ANSI colors for terminal output ────────────────────────────────────────
 
@@ -448,21 +451,67 @@ def cmd_generate(args):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        prog="cli",
-        description=f"{C.CYAN}{C.BOLD}Smart Tool Log Parser{C.RESET} — CLI for Fab Engineers",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=f"""
+    class CLIArgumentParser(argparse.ArgumentParser):
+        def print_help(self, file=None):
+            help_text = f"""\
+{C.CYAN}{C.BOLD}Smart Tool Log Parser{C.RESET} — CLI for Fab Engineers
+
+{C.BOLD}Usage:{C.RESET}
+  python cli.py <command> [options]
+
+{C.BOLD}Commands & Options:{C.RESET}
+
+  {C.GREEN}ingest{C.RESET} <files>...         Parse and store log files
+      -v, --verbose           Show parser warnings
+
+  {C.GREEN}stats{C.RESET}                     Show summary statistics
+      --file <name>           Filter by source filename
+
+  {C.GREEN}query{C.RESET}                     Query stored log entries
+      --tool <id>             Filter by tool_id
+      --severity <sev>        Filter by severity (INFO/WARNING/ERROR/CRITICAL)
+      --type <type>           Filter by log_type
+      --start <ts>            Start timestamp (ISO format)
+      --end <ts>              End timestamp (ISO format)
+      --search <text>         Full-text search in messages
+      --file <name>           Filter by source filename
+      --limit <num>           Max records (default: 50)
+
+  {C.GREEN}export{C.RESET} <output>           Export to CSV or JSON
+      --tool <id>             Filter by tool_id
+      --severity <sev>        Filter by severity
+      --file <name>           Filter by source filename
+      --limit <num>           Max records
+
+  {C.GREEN}analyze{C.RESET}                   Run AI analysis on logs
+      --file <name>           Filter by source filename
+      --severity <sev>        Filter by severity
+      -q, --question <text>   Ask a specific question
+
+  {C.GREEN}templates{C.RESET}                 Manage format templates
+      --delete <name/id>      Delete template by name or ID
+
+  {C.GREEN}clear{C.RESET}                     Clear stored data
+      --file <name>           Clear only records for this filename
+      -y, --yes               Skip confirmation
+
+  {C.GREEN}generate{C.RESET}                  Generate synthetic demo logs
+      --output <dir>          Output directory (default: synthetic/samples)
+      --ingest                Also ingest generated files
+
 {C.BOLD}Examples:{C.RESET}
-  python cli.py ingest logs/*.log logs/*.bin       Parse multiple log files
-  python cli.py stats                              Show overall statistics
-  python cli.py stats --file tool_log_text.txt     Stats for a specific file
+  python cli.py ingest logs/*.log logs/*.bin
+  python cli.py stats --file tool_log_text.txt
   python cli.py query --tool ETCH-01 --severity ERROR
-  python cli.py query --search "vacuum" --limit 20
   python cli.py export results.csv --severity ERROR
   python cli.py analyze --question "What caused the pressure faults?"
-  python cli.py generate --ingest                  Generate and auto-ingest demo logs
-""",
+  python cli.py generate --ingest
+"""
+            print(help_text)
+
+    parser = CLIArgumentParser(
+        prog="cli",
+        add_help=True,
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
