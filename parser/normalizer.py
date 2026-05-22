@@ -450,21 +450,7 @@ def normalise_record(
             if wafer_match:
                 metadata["wafer_id"] = wafer_match.group(1)
 
-        if not metadata.get("recipe_id"):
-            recipe_match = re.search(
-                r"(?:recipe|process)[_\s]*[=:#]?\s*([A-Z0-9_\-]+)",
-                combined_text,
-                re.IGNORECASE,
-            )
-            if recipe_match:
-                candidate = recipe_match.group(1)
-                if candidate.lower() not in (
-                    "start",
-                    "stepcomplete",
-                    "stop",
-                    "complete",
-                ):
-                    metadata["recipe_id"] = candidate
+
 
         if not metadata.get("step_number"):
             step_match = re.search(
