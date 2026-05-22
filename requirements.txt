@@ -6,4 +6,3 @@ openai
 drain3
 pyarrow
 paho-mqtt
-streamlit-autorefresh
