@@ -227,6 +227,7 @@ def parse_log(
         if fmt in FORMAT_PARSERS:
             parser_module = FORMAT_PARSERS[fmt]
             raw_records = list(parser_module.parse(content_str))
+            sample_rows = raw_records[:3]
 
             _unmapped_warned = False
             for i, raw in enumerate(raw_records):
@@ -236,6 +237,7 @@ def parse_log(
                         source_format=fmt,
                         filename=filename,
                         is_recipe=is_recipe,
+                        sample_rows=sample_rows,
                     )
                     entry = _build_entry(normalised, is_recipe)
                     _validate_and_warn(entry, i, warnings)
@@ -270,6 +272,7 @@ def parse_log(
 
                 raw_records = list(universal_parser.parse(content_bytes))
                 field_mapping = template.get("field_mapping", {})
+                sample_rows = raw_records[:3]
                 for i, raw in enumerate(raw_records):
                     # Remap fields according to saved template
                     mapped = {}
@@ -286,6 +289,7 @@ def parse_log(
                             source_format="llm_parsed",
                             filename=filename,
                             is_recipe=is_recipe,
+                            sample_rows=sample_rows,
                         )
                         entry = _build_entry(normalised, is_recipe)
                         _validate_and_warn(entry, i, warnings)
@@ -299,6 +303,7 @@ def parse_log(
                     f"Using LLM-assisted discovery."
                 )
                 raw_records = list(llm_parser.parse(content_bytes))
+                sample_rows = raw_records[:3]
                 for i, raw in enumerate(raw_records):
                     try:
                         normalised = normalise_record(
@@ -306,6 +311,7 @@ def parse_log(
                             source_format="llm_parsed",
                             filename=filename,
                             is_recipe=is_recipe,
+                            sample_rows=sample_rows,
                         )
                         entry = _build_entry(normalised, is_recipe)
                         _validate_and_warn(entry, i, warnings)
@@ -321,6 +327,7 @@ def parse_log(
             from parser.parsers import universal_parser
 
             raw_records = list(universal_parser.parse(content_bytes))
+            sample_rows = raw_records[:3]
             for i, raw in enumerate(raw_records):
                 try:
                     normalised = normalise_record(
@@ -328,6 +335,7 @@ def parse_log(
                         source_format="universal",
                         filename=filename,
                         is_recipe=is_recipe,
+                        sample_rows=sample_rows,
                     )
                     entry = _build_entry(normalised, is_recipe)
                     _validate_and_warn(entry, i, warnings)
@@ -407,6 +415,7 @@ def _parse_parquet(
     try:
         df = pd.read_parquet(io.BytesIO(content_bytes))
         raw_records = df.to_dict(orient="records")
+        sample_rows = raw_records[:3]
 
         for i, raw in enumerate(raw_records):
             try:
@@ -415,6 +424,7 @@ def _parse_parquet(
                     source_format="parquet",
                     filename=filename,
                     is_recipe=is_recipe,
+                    sample_rows=sample_rows,
                 )
                 entry = _build_entry(normalised, is_recipe)
                 _validate_and_warn(entry, i, warnings)

@@ -55,7 +55,9 @@ def _compute_unmapped(columns: list[str], mapping: dict[str, str]) -> list[str]:
 
 
 def get_or_infer_mapping(
-    columns: list[str], filename: str = ""
+    columns: list[str],
+    filename: str = "",
+    sample_rows: list[dict] | None = None,
 ) -> tuple[dict[str, str], bool, list[str]]:
     """
     Return (mapping, was_cache_hit, unmapped_columns).
@@ -63,6 +65,7 @@ def get_or_infer_mapping(
     mapping:          {raw_column -> canonical_field}
     was_cache_hit:    True when the result was served from DB cache
     unmapped_columns: columns not in mapping and not covered by hardcoded aliases
+    sample_rows:      up to 3 raw parsed rows used to ground the LLM inference
     """
     if not columns:
         return {}, False, []
@@ -86,7 +89,7 @@ def get_or_infer_mapping(
 
     # Cache miss — call LLM
     logger.debug(f"Header mapping cache miss for {len(columns)} columns — calling LLM")
-    mapping = analyzer.infer_column_mapping(columns)
+    mapping = analyzer.infer_column_mapping(columns, sample_rows)
 
     if mapping:
         db.save_header_mapping(fingerprint, mapping, filename)

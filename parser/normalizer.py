@@ -288,6 +288,7 @@ def normalise_record(
     source_format: str,
     filename: str,
     is_recipe: bool = False,
+    sample_rows: list[dict] | None = None,
 ) -> dict:
     """
     Schema-on-Read Normalization with Unstructured Bypass.
@@ -326,7 +327,7 @@ def normalise_record(
         # AI header inference — runs once per unique header set, result is cached
         from parser.header_inference import get_or_infer_mapping
 
-        ai_mapping, _, ai_unmapped = get_or_infer_mapping(list(flat_raw.keys()), filename)
+        ai_mapping, _, ai_unmapped = get_or_infer_mapping(list(flat_raw.keys()), filename, sample_rows)
 
         for k, v in flat_raw.items():
             key = k.lower().strip()

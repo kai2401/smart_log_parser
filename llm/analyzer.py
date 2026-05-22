@@ -167,23 +167,35 @@ def summarise_session(stats: dict, sample_entries: list[dict]) -> str:
 
 
 INFER_COLUMNS_SYSTEM = """You are a data schema expert for semiconductor manufacturing log systems.
-You will receive a list of column names from an uploaded log file.
+You will receive column names from an uploaded log file, and optionally up to 3 sample rows of data.
 Map each column name to one of these canonical field names if there is a reasonable match.
+Use both the column name AND the sample values to determine the best mapping.
 Return ONLY a JSON object, no markdown, no explanation.
 
-Canonical fields:
-- timestamp: event time (aliases: ts, time, datetime, date, occurred_at, log_time)
-- tool_id: equipment/machine identifier (aliases: machine, host, device, equip, unit)
-- severity: log level (aliases: level, priority, sev, log_level, type)
-- event_name: human readable message (aliases: message, msg, description, text, detail)
-- recipe_id: process recipe (aliases: recipe, process, job)
-- wafer_id: wafer or lot (aliases: wafer, lot, substrate, batch)
-- parameter_name: sensor/metric name (aliases: sensor, metric, param, key)
-- parameter_value: numeric reading (aliases: value, reading, val, measurement)
-- unit: unit of measurement (aliases: units, uom)
-- process_stage: process phase (aliases: stage, phase, step, operation)
+Canonical fields and their expected value patterns:
+- timestamp: event time — e.g. "2024-03-01T08:00:52" (ISO 8601 datetime string)
+  (aliases: ts, time, datetime, date, occurred_at, log_time)
+- tool_id: equipment identifier — e.g. "ETCH-01", "CVD-03", "PVD-04" (tool type hyphen number)
+  (aliases: machine, host, device, equip, unit)
+- severity: log level — one of: INFO, WARNING, ERROR, CRITICAL
+  (aliases: level, priority, sev, log_level, type)
+- event_name: human-readable message — e.g. "Recipe started", "Alarm triggered: E002_PRESSURE_FAULT"
+  (aliases: message, msg, description, text, detail)
+- recipe_id: process recipe — e.g. "ETH_SiO2_v3", "CVD_TiN_v2", "PVD_Al_v1" (name_version format)
+  (aliases: recipe, process, job)
+- wafer_id: wafer or lot identifier — e.g. "LOT4225-W10", "LOT7414-W25" (LOT####-W## format)
+  (aliases: wafer, lot, substrate, batch)
+- parameter_name: sensor/metric name — e.g. "temperature", "pressure", "flow_rate", "rf_power", "chuck_temp"
+  (aliases: sensor, metric, param, key)
+- parameter_value: numeric sensor reading — e.g. 19.8818, 166.0908, 3.2709 (float, up to 4 decimal places)
+  (aliases: value, reading, val, measurement)
+- unit: unit of measurement — e.g. "°C", "mTorr", "sccm", "W", "Torr"
+  (aliases: units, uom)
+- process_stage: process phase — one of: LOAD, PUMP_DOWN, PROCESS, PURGE, VENT, UNLOAD, IDLE
+  (aliases: stage, phase, step, operation)
 
 Rules:
+- Use sample row values as strong evidence — if a column's values look like timestamps, map it to timestamp even if the name is unusual
 - Only map columns where you are confident (>80%)
 - Unmapped columns should be omitted from the output entirely
 - If a column clearly does not match any canonical field, omit it
@@ -203,15 +215,22 @@ _CANONICAL_FIELDS = {
 }
 
 
-def infer_column_mapping(columns: list[str]) -> dict[str, str]:
+def infer_column_mapping(
+    columns: list[str], sample_rows: list[dict] | None = None
+) -> dict[str, str]:
     """
     Use the LLM to map raw column names to canonical schema fields.
+    Optionally accepts up to 3 sample rows to ground the inference on actual values.
     Returns an empty dict on any failure — callers must handle this gracefully.
     """
     if not columns:
         return {}
     try:
-        user_msg = json.dumps(columns)
+        if sample_rows:
+            payload = {"columns": columns, "sample_rows": sample_rows[:3]}
+        else:
+            payload = {"columns": columns}
+        user_msg = json.dumps(payload)
         raw = _call_chat(INFER_COLUMNS_SYSTEM, user_msg, max_tokens=300)
         raw = (
             raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
