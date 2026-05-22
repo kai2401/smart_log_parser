@@ -281,14 +281,14 @@ def cmd_export(args):
 
     output = args.output
     if output.endswith(".json"):
-        with open(output, "w") as f:
+        with open(output, "w", encoding="utf-8") as f:
             json.dump(rows, f, indent=2, default=str)
     elif output.endswith(".csv"):
         import csv
 
         if rows:
             keys = list(rows[0].keys())
-            with open(output, "w", newline="") as f:
+            with open(output, "w", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(f, fieldnames=keys, extrasaction="ignore")
                 writer.writeheader()
                 writer.writerows(rows)
