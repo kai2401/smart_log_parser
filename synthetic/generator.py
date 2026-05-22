@@ -285,6 +285,26 @@ def write_text(entries: list[dict], path: str):
         f.write("\n".join(lines))
 
 
+def write_key_value(entries: list[dict], path: str):
+    lines = []
+    for e in entries:
+        parts = [f"{k}={v}" for k, v in e.items() if v is not None]
+        lines.append(" || ".join(parts))
+    with open(path, "w") as f:
+        f.write("\n".join(lines))
+
+
+def write_binary(entries: list[dict], path: str):
+    import struct
+    with open(path, "wb") as f:
+        # Magic bytes for proprietary log
+        f.write(b"\x89BNL\r\n\x1a\n\x00\x00")
+        for e in entries:
+            # Simple length-prefixed, null-delimited payload
+            rec = b"\x00".join(f"{k}={v}".encode("utf-8") for k, v in e.items() if v is not None)
+            f.write(struct.pack("<I", len(rec)) + rec)
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -304,6 +324,8 @@ def generate_sample_files(output_dir: str = "synthetic/samples"):
         ("xml", write_xml, "xml"),
         ("syslog", write_syslog, "log"),
         ("text", write_text, "txt"),
+        ("kv", write_key_value, "kv"),
+        ("binary", write_binary, "bin"),
     ]:
         entries = generate_all(n_rows)
         path = os.path.join(output_dir, f"tool_log_{fmt}.{ext}")

@@ -1,29 +1,28 @@
 """
-Database layer: SQLite storage for parsed LogEntry records.
+Database layer: SQLite storage for parsed LogEntry and RecipeEntry records.
 """
 
 import sqlite3
+import json
+import hashlib
 from typing import Any
-from parser.schema import LogEntry
+from datetime import datetime
+from parser.schema import LogEntry, RecipeEntry
 import config
+import logging
 
-CREATE_SQL = """
+logger = logging.getLogger(__name__)
+
+CREATE_LOG_SQL = """
 CREATE TABLE IF NOT EXISTS log_entries (
     id                  TEXT PRIMARY KEY,
     timestamp           TEXT,
     tool_id             TEXT,
     log_type            TEXT,
     severity            TEXT,
-    event_name          TEXT,
-    recipe_id           TEXT,
-    wafer_id            TEXT,
-    process_stage       TEXT,
-    step_number         INTEGER,
-    parameter_name      TEXT,
-    parameter_value     REAL,
-    unit                TEXT,
     raw_message         TEXT,
-    normalized_message  TEXT,
+    drain_cluster_id    INTEGER,
+    metadata            TEXT,
     source_format       TEXT,
     source_filename     TEXT,
     ai_summary          TEXT,
@@ -32,11 +31,58 @@ CREATE TABLE IF NOT EXISTS log_entries (
 );
 """
 
+CREATE_RECIPE_SQL = """
+CREATE TABLE IF NOT EXISTS recipe_entries (
+    id                  TEXT PRIMARY KEY,
+    timestamp           TEXT,
+    tool_id             TEXT,
+    metadata            TEXT,
+    raw_message         TEXT,
+    source_format       TEXT,
+    source_filename     TEXT
+);
+"""
+
+CREATE_JOBS_SQL = """
+CREATE TABLE IF NOT EXISTS processing_jobs (
+    id              TEXT PRIMARY KEY,
+    filename        TEXT NOT NULL,
+    status          TEXT NOT NULL,
+    progress        INTEGER NOT NULL,
+    error_message   TEXT,
+    total_records   INTEGER
+);
+"""
+
+CREATE_PENDING_REVIEWS_SQL = """
+CREATE TABLE IF NOT EXISTS pending_reviews (
+    id              TEXT PRIMARY KEY,
+    job_id          TEXT NOT NULL,
+    filename        TEXT NOT NULL,
+    record_data     TEXT NOT NULL,
+    field_mapping   TEXT,
+    approved        INTEGER DEFAULT 0
+);
+"""
+
+CREATE_FORMAT_TEMPLATES_SQL = """
+CREATE TABLE IF NOT EXISTS format_templates (
+    id              TEXT PRIMARY KEY,
+    name            TEXT NOT NULL,
+    file_signature  TEXT UNIQUE,
+    field_mapping   TEXT NOT NULL,
+    sample_preview  TEXT,
+    created_at      TEXT
+);
+"""
+
 INDEX_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_timestamp  ON log_entries(timestamp);",
     "CREATE INDEX IF NOT EXISTS idx_tool_id    ON log_entries(tool_id);",
     "CREATE INDEX IF NOT EXISTS idx_severity   ON log_entries(severity);",
-    "CREATE INDEX IF NOT EXISTS idx_log_type   ON log_entries(log_type);",
+    "CREATE INDEX IF NOT EXISTS idx_recipe_tool ON recipe_entries(tool_id);",
+    "CREATE INDEX IF NOT EXISTS idx_pending_job ON pending_reviews(job_id);",
+    "CREATE INDEX IF NOT EXISTS idx_template_sig ON format_templates(file_signature);",
 ]
 
 
@@ -48,21 +94,61 @@ def _get_conn() -> sqlite3.Connection:
 
 def init_db() -> None:
     with _get_conn() as conn:
-        conn.execute(CREATE_SQL)
+        conn.execute(CREATE_LOG_SQL)
+        conn.execute(CREATE_RECIPE_SQL)
+        conn.execute(CREATE_JOBS_SQL)
+        conn.execute(CREATE_PENDING_REVIEWS_SQL)
+        conn.execute(CREATE_FORMAT_TEMPLATES_SQL)
+        _ensure_column(conn, "log_entries", "metadata", "TEXT")
         for idx in INDEX_SQL:
             conn.execute(idx)
         conn.commit()
+    logger.debug("Database initialized with required tables and indexes.")
+
+
+def _ensure_column(
+    conn: sqlite3.Connection, table: str, column: str, col_type: str
+) -> None:
+    existing = {
+        row["name"] for row in conn.execute(f"PRAGMA table_info({table})")
+    }
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {col_type}")
 
 
 def insert_entries(entries: list[LogEntry]) -> int:
-    """Insert a batch of entries. Returns count inserted."""
+    """Insert a batch of log entries. Returns count inserted."""
     if not entries:
         return 0
+
+    logger.debug(f"Inserting {len(entries)} log entries into database.")
 
     cols = [f for f in LogEntry.__dataclass_fields__]
     placeholders = ", ".join("?" * len(cols))
     sql = (
         f"INSERT OR IGNORE INTO log_entries ({', '.join(cols)}) VALUES ({placeholders})"
+    )
+
+    rows = []
+    for e in entries:
+        d = e.to_dict()
+        rows.append(tuple(d.get(c) for c in cols))
+
+    with _get_conn() as conn:
+        conn.executemany(sql, rows)
+        conn.commit()
+    return len(rows)
+
+
+def insert_recipes(entries: list[RecipeEntry]) -> int:
+    """Insert a batch of recipe entries. Returns count inserted."""
+    if not entries:
+        return 0
+
+    cols = [f for f in RecipeEntry.__dataclass_fields__]
+    placeholders = ", ".join("?" * len(cols))
+    sql = (
+        f"INSERT OR IGNORE INTO recipe_entries ({', '.join(cols)}) VALUES ({placeholders})"
     )
 
     rows = []
@@ -99,6 +185,7 @@ def query_entries(
     source_filename: str | None = None,
     limit: int = 1000,
 ) -> list[dict]:
+    logger.debug(f"Querying entries with tool_id={tool_id}, severity={severity}, limit={limit}")
     conditions = []
     params: list[Any] = []
 
@@ -122,7 +209,7 @@ def query_entries(
         params.append(source_filename)
     if search:
         conditions.append(
-            "(raw_message LIKE ? OR event_name LIKE ? OR normalized_message LIKE ?)"
+            "(raw_message LIKE ? OR json_extract(metadata, '$.event_name') LIKE ? OR json_extract(metadata, '$.normalized_message') LIKE ?)"
         )
         pattern = f"%{search}%"
         params.extend([pattern, pattern, pattern])
@@ -135,7 +222,58 @@ def query_entries(
 
     with _get_conn() as conn:
         rows = conn.execute(sql, params).fetchall()
-    return [dict(r) for r in rows]
+        
+    results = []
+    for r in rows:
+        d = dict(r)
+        if d.get("metadata"):
+            try:
+                meta = json.loads(d.pop("metadata"))
+                d.update(meta)
+            except Exception:
+                pass
+        results.append(d)
+    return results
+
+
+def query_recipes(
+    tool_id: str | None = None,
+    recipe_id: str | None = None,
+    source_filename: str | None = None,
+    limit: int = 500,
+) -> list[dict]:
+    """Query recipe entries with optional filters."""
+    conditions = []
+    params: list[Any] = []
+
+    if tool_id:
+        conditions.append("tool_id = ?")
+        params.append(tool_id)
+    if recipe_id:
+        conditions.append("json_extract(metadata, '$.recipe_id') = ?")
+        params.append(recipe_id)
+    if source_filename:
+        conditions.append("source_filename = ?")
+        params.append(source_filename)
+
+    where = f"WHERE {' AND '.join(conditions)}" if conditions else ""
+    sql = f"SELECT * FROM recipe_entries {where} ORDER BY timestamp DESC LIMIT ?"
+    params.append(limit)
+
+    with _get_conn() as conn:
+        rows = conn.execute(sql, params).fetchall()
+
+    results = []
+    for r in rows:
+        d = dict(r)
+        if d.get("metadata"):
+            try:
+                meta = json.loads(d.pop("metadata"))
+                d.update(meta)
+            except Exception:
+                pass
+        results.append(d)
+    return results
 
 
 def get_summary_stats(source_filename: str | None = None) -> dict:
@@ -161,21 +299,34 @@ def get_summary_stats(source_filename: str | None = None) -> dict:
         tools = conn.execute(
             f"SELECT COUNT(DISTINCT tool_id) FROM log_entries {where}", params
         ).fetchone()[0]
+        recipes = conn.execute(
+            f"SELECT COUNT(*) FROM recipe_entries {'WHERE source_filename = ?' if source_filename else ''}",
+            [source_filename] if source_filename else [],
+        ).fetchone()[0]
     return {
         "total": total,
         "alarms": alarms,
         "errors": errors,
         "warnings": warnings_c,
         "tools": tools,
+        "recipes": recipes,
     }
 
 
 def get_distinct_values(column: str, source_filename: str | None = None) -> list[str]:
     where = "WHERE source_filename = ?" if source_filename else ""
     params = [source_filename] if source_filename else []
+    
+    # If it's a dynamic column, extract from JSON
+    core_columns = {"id", "timestamp", "tool_id", "log_type", "severity", "raw_message", "drain_cluster_id", "source_format", "source_filename", "ai_summary", "ai_classification", "ai_root_cause_hint", "metadata"}
+    if column not in core_columns:
+        db_col = f"json_extract(metadata, '$.{column}')"
+    else:
+        db_col = column
+
     with _get_conn() as conn:
         rows = conn.execute(
-            f"SELECT DISTINCT {column} FROM log_entries {where} ORDER BY {column}",
+            f"SELECT DISTINCT {db_col} FROM log_entries {where} ORDER BY {db_col}",
             params,
         ).fetchall()
     return [r[0] for r in rows if r[0]]
@@ -184,10 +335,209 @@ def get_distinct_values(column: str, source_filename: str | None = None) -> list
 def clear_all() -> None:
     with _get_conn() as conn:
         conn.execute("DELETE FROM log_entries")
+        conn.execute("DELETE FROM recipe_entries")
+        conn.execute("DELETE FROM pending_reviews")
         conn.commit()
 
 
 def delete_by_filename(filename: str) -> None:
     with _get_conn() as conn:
         conn.execute("DELETE FROM log_entries WHERE source_filename = ?", (filename,))
+        conn.execute("DELETE FROM recipe_entries WHERE source_filename = ?", (filename,))
         conn.commit()
+
+
+def create_job(job_id: str, filename: str) -> None:
+    with _get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO processing_jobs (id, filename, status, progress) VALUES (?, ?, ?, ?)",
+            (job_id, filename, "PENDING", 0),
+        )
+        conn.commit()
+
+
+def update_job(
+    job_id: str,
+    status: str,
+    progress: int,
+    error_message: str | None = None,
+    total_records: int | None = None,
+) -> None:
+    with _get_conn() as conn:
+        conn.execute(
+            """
+            UPDATE processing_jobs
+            SET status = ?, progress = ?, error_message = ?, total_records = ?
+            WHERE id = ?
+            """,
+            (status, progress, error_message, total_records, job_id),
+        )
+        conn.commit()
+
+
+def get_job(job_id: str) -> dict | None:
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT id, filename, status, progress, error_message, total_records FROM processing_jobs WHERE id = ?",
+            (job_id,),
+        ).fetchone()
+    return dict(row) if row else None
+
+
+# ---------------------------------------------------------------------------
+# Pending reviews (human-in-the-loop)
+# ---------------------------------------------------------------------------
+
+def insert_pending_reviews(
+    job_id: str,
+    filename: str,
+    records: list[dict],
+) -> int:
+    """Stage LLM-parsed records for human review. Returns count inserted."""
+    import uuid as _uuid
+    rows = []
+    for rec in records:
+        rows.append((
+            str(_uuid.uuid4()),
+            job_id,
+            filename,
+            json.dumps(rec, default=str),
+            None,
+            0,
+        ))
+    with _get_conn() as conn:
+        conn.executemany(
+            "INSERT OR IGNORE INTO pending_reviews (id, job_id, filename, record_data, field_mapping, approved) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            rows,
+        )
+        conn.commit()
+    return len(rows)
+
+
+def get_pending_reviews(job_id: str) -> list[dict]:
+    """Get all pending review records for a job."""
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM pending_reviews WHERE job_id = ? ORDER BY rowid",
+            (job_id,),
+        ).fetchall()
+    results = []
+    for r in rows:
+        d = dict(r)
+        d["record_data"] = json.loads(d["record_data"]) if d["record_data"] else {}
+        if d.get("field_mapping"):
+            d["field_mapping"] = json.loads(d["field_mapping"])
+        results.append(d)
+    return results
+
+
+def update_pending_record(record_id: str, record_data: dict) -> None:
+    """Update a single pending review record (after user edits)."""
+    with _get_conn() as conn:
+        conn.execute(
+            "UPDATE pending_reviews SET record_data = ? WHERE id = ?",
+            (json.dumps(record_data, default=str), record_id),
+        )
+        conn.commit()
+
+
+def approve_pending_reviews(job_id: str) -> list[dict]:
+    """
+    Return all pending records for a job so the caller can normalise
+    and insert them into log_entries. Then delete from pending.
+    """
+    reviews = get_pending_reviews(job_id)
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM pending_reviews WHERE job_id = ?", (job_id,))
+        conn.commit()
+    return reviews
+
+
+def reject_pending_reviews(job_id: str) -> None:
+    """Discard all pending records for a job."""
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM pending_reviews WHERE job_id = ?", (job_id,))
+        conn.commit()
+
+
+def count_pending_reviews(job_id: str) -> int:
+    """Count pending review records for a job."""
+    with _get_conn() as conn:
+        return conn.execute(
+            "SELECT COUNT(*) FROM pending_reviews WHERE job_id = ?", (job_id,)
+        ).fetchone()[0]
+
+
+# ---------------------------------------------------------------------------
+# Format templates (reusable field mappings)
+# ---------------------------------------------------------------------------
+
+def compute_file_signature(content_bytes: bytes, filename: str) -> str:
+    """Compute a signature for matching format templates."""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else "unknown"
+    content_hash = hashlib.md5(content_bytes[:4096]).hexdigest()[:12]
+    return f"{ext}:{content_hash}"
+
+
+def save_format_template(
+    name: str,
+    file_signature: str,
+    field_mapping: dict,
+    sample_preview: str = "",
+) -> str:
+    """Save a reusable format template. Returns the template ID."""
+    import uuid as _uuid
+    template_id = str(_uuid.uuid4())
+    with _get_conn() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO format_templates "
+            "(id, name, file_signature, field_mapping, sample_preview, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                template_id,
+                name,
+                file_signature,
+                json.dumps(field_mapping, default=str),
+                sample_preview[:500],
+                datetime.now().isoformat(),
+            ),
+        )
+        conn.commit()
+    return template_id
+
+
+def get_format_template(file_signature: str) -> dict | None:
+    """Look up a format template by file signature."""
+    with _get_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM format_templates WHERE file_signature = ?",
+            (file_signature,),
+        ).fetchone()
+    if not row:
+        return None
+    d = dict(row)
+    d["field_mapping"] = json.loads(d["field_mapping"]) if d["field_mapping"] else {}
+    return d
+
+
+def list_format_templates() -> list[dict]:
+    """List all saved format templates."""
+    with _get_conn() as conn:
+        rows = conn.execute(
+            "SELECT * FROM format_templates ORDER BY created_at DESC"
+        ).fetchall()
+    results = []
+    for r in rows:
+        d = dict(r)
+        d["field_mapping"] = json.loads(d["field_mapping"]) if d["field_mapping"] else {}
+        results.append(d)
+    return results
+
+
+def delete_format_template(template_id: str) -> None:
+    """Delete a format template."""
+    with _get_conn() as conn:
+        conn.execute("DELETE FROM format_templates WHERE id = ?", (template_id,))
+        conn.commit()
+

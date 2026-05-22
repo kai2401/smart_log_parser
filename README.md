@@ -16,42 +16,25 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-### 3. Generate demo logs (optional — also available in-app)
+### 3. Start MQTT Daemon (for live streaming)
+```bash
+python mqtt_server.py
+```
+
+### 4. Generate demo logs (optional — also available in-app)
 ```bash
 python synthetic/generator.py
 ```
 
 ---
 
-## 📁 Project Structure
+## 📡 Real-Time MQTT & Advanced Features
 
-```
-smart_log_parser/
-├── app.py                        # Streamlit dashboard (main entry point)
-├── config.py                     # Config: API keys, DB path, constants
-├── requirements.txt
-│
-├── parser/
-│   ├── __init__.py               # Pipeline orchestrator: detect → parse → normalise
-│   ├── detector.py               # Format auto-detection (extension + content sniff)
-│   ├── normalizer.py             # Field alias maps + value normalisation
-│   ├── schema.py                 # LogEntry dataclass (canonical schema)
-│   └── parsers/
-│       ├── json_parser.py        # JSON / NDJSON
-│       ├── csv_parser.py         # CSV / TSV
-│       ├── xml_parser.py         # XML
-│       ├── syslog_parser.py      # RFC 3164 + ISO syslog
-│       └── text_parser.py        # Unstructured plain text (regex)
-│
-├── database/
-│   └── db.py                     # SQLite CRUD, filters, summary stats
-│
-├── llm/
-│   └── analyzer.py               # Anthropic Claude: batch classify, deep explain, overview
-│
-└── synthetic/
-    └── generator.py              # Generates realistic tool logs in all 5 formats
-```
+- **Live Edge Ingestion**: Run `mqtt_client.py` on edge devices (like a Raspberry Pi) to stream simulated fab machine logs directly to the platform over MQTT.
+- **Daemon Processing**: `mqtt_server.py` runs as a background daemon, actively listening to the broker, parsing JSON payloads, and committing them to the database in real-time.
+- **Live View Dashboard**: A dedicated tab in the Streamlit app uses `streamlit-autorefresh` to poll the database every 2 seconds, providing an instant view of incoming machine telemetry and alarms.
+- **Drain3 Log Clustering**: Automatically masks highly entropic variables (e.g., sensor floats, IP addresses) in unstructured log messages, grouping similar events into static templates.
+- **Background Batch Workers**: Massive multi-file batch uploads are offloaded to `threading.Thread` workers, preventing UI lockups and enabling real-time progress bars.
 
 ---
 
@@ -74,6 +57,16 @@ Raw Tool Logs (JSON | CSV | XML | Syslog | Text)
         ↓
   LLM Analysis      (llm/analyzer.py → Claude)
 ```
+
+---
+
+## 🤖 AI Features
+
+- **Session Overview**: executive summary of the uploaded log session
+- **Batch Classification**: classify up to 50 entries at once (normal / warning / anomaly / fault)
+- **Deep-Dive Analysis**: detailed explanation + root cause + recommended action for any single entry
+
+Set your `ANTHROPIC_API_KEY` environment variable or paste it in the sidebar.
 
 ---
 
@@ -100,13 +93,53 @@ Raw Tool Logs (JSON | CSV | XML | Syslog | Text)
 
 ---
 
-## 🤖 AI Features
+## 📁 Project Structure
 
-- **Session Overview**: executive summary of the uploaded log session
-- **Batch Classification**: classify up to 50 entries at once (normal / warning / anomaly / fault)
-- **Deep-Dive Analysis**: detailed explanation + root cause + recommended action for any single entry
+```
+smart_log_parser/
+├── app.py                        # Streamlit dashboard (main entry point)
+├── mqtt_server.py                # Background MQTT listener & database committer
+├── mqtt_client.py                # Fab machine MQTT payload simulator (Edge)
+├── worker.py                     # Threaded background processing for batch uploads
+├── config.py                     # Config: API keys, DB path, constants
+├── requirements.txt
+│
+├── parser/
+│   ├── __init__.py               # Pipeline orchestrator: detect → parse → normalise
+│   ├── detector.py               # Format auto-detection (extension + content sniff)
+│   ├── normalizer.py             # Field alias maps + value normalisation
+│   ├── drain_manager.py          # Drain3 clustering template engine
+│   ├── schema.py                 # LogEntry dataclass (canonical schema)
+│   └── parsers/
+│       ├── json_parser.py        # JSON / NDJSON
+│       ├── csv_parser.py         # CSV / TSV
+│       ├── xml_parser.py         # XML
+│       ├── syslog_parser.py      # RFC 3164 + ISO syslog
+│       └── text_parser.py        # Unstructured plain text (regex)
+│
+├── database/
+│   └── db.py                     # SQLite CRUD, filters, summary stats
+│
+├── llm/
+│   └── analyzer.py               # Anthropic Claude: batch classify, deep explain
+│
+└── synthetic/
+    └── generator.py              # Generates realistic tool logs in all 5 formats
+```
 
-Set your `ANTHROPIC_API_KEY` environment variable or paste it in the sidebar.
+---
+
+## 💻 Tech Stack
+
+| Component | Technology |
+|---|---|
+| Backend | Python 3.11+ |
+| Parsers | regex, stdlib csv/json/xml |
+| Edge / Pipeline | paho-mqtt, drain3 |
+| Database | SQLite (via stdlib sqlite3) |
+| Dashboard | Streamlit, streamlit-autorefresh |
+| LLM | Anthropic Claude (claude-sonnet-4) |
+| Charts | Plotly |
 
 ---
 
@@ -121,16 +154,3 @@ Set your `ANTHROPIC_API_KEY` environment variable or paste it in the sidebar.
 | FR5 | Dashboard | Upload → table → filter → chart in <3s |
 | FR6 | AI summaries | Summaries + classification for selected entries |
 | FR7 | Synthetic data | 5-format demo files generated in-app |
-
----
-
-## 💻 Tech Stack
-
-| Component | Technology |
-|---|---|
-| Backend | Python 3.11+ |
-| Parsers | regex, stdlib csv/json/xml |
-| Database | SQLite (via stdlib sqlite3) |
-| Dashboard | Streamlit |
-| LLM | Anthropic Claude (claude-sonnet-4) |
-| Charts | Plotly |
