@@ -300,7 +300,10 @@ with st.sidebar:
                 st.success(f"✓ {n} rows stored")
                 if warnings:
                     for w in warnings[:5]:
-                        st.warning(w)
+                        if w.startswith("AI header inference"):
+                            st.info(f"ℹ️ {w}")
+                        else:
+                            st.warning(w)
 
     st.divider()
     st.markdown("### 🗄️ Database")
@@ -756,6 +759,28 @@ with tab1:
             file_name=f"parsed_logs_{active_file or 'all'}.csv",
             mime="text/csv",
         )
+
+        # Persistent unmapped-column notice (shown whenever a file is viewed)
+        if active_file:
+            with db._get_conn() as _conn:
+                _unmapped_row = _conn.execute(
+                    """
+                    SELECT json_extract(metadata, '$.ai_unmapped_columns')
+                    FROM log_entries
+                    WHERE source_filename = ?
+                    AND json_extract(metadata, '$.ai_unmapped_columns') IS NOT NULL
+                    LIMIT 1
+                    """,
+                    (active_file,),
+                ).fetchone()
+            if _unmapped_row and _unmapped_row[0]:
+                _unmapped_list = json.loads(_unmapped_row[0])
+                st.info(
+                    f"**{len(_unmapped_list)} column(s) stored in metadata** — "
+                    f"AI could not map these to canonical fields: "
+                    f"`{'`, `'.join(_unmapped_list)}`  \n"
+                    f"They are still accessible via the metadata column."
+                )
 
 # ─────────────────────── TAB 2: Analytics ──────────────────────────────────
 with tab2:

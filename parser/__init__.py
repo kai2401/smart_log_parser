@@ -7,6 +7,7 @@ No LLM code-generation in the hot path. Deterministic, robust, and schema-adapti
 
 import re
 import io
+import json
 import pandas as pd
 
 from parser.detector import detect_format
@@ -227,6 +228,7 @@ def parse_log(
             parser_module = FORMAT_PARSERS[fmt]
             raw_records = list(parser_module.parse(content_str))
 
+            _unmapped_warned = False
             for i, raw in enumerate(raw_records):
                 try:
                     normalised = normalise_record(
@@ -238,6 +240,16 @@ def parse_log(
                     entry = _build_entry(normalised, is_recipe)
                     _validate_and_warn(entry, i, warnings)
                     entries.append(entry)
+                    if not _unmapped_warned:
+                        meta = json.loads(normalised.get("metadata", "{}") or "{}")
+                        unmapped = meta.get("ai_unmapped_columns", [])
+                        if unmapped:
+                            warnings.append(
+                                f"AI header inference: {len(unmapped)} column(s) could not be "
+                                f"mapped to canonical fields and were stored in metadata: "
+                                f"{', '.join(unmapped)}"
+                            )
+                            _unmapped_warned = True
                 except Exception as e:
                     warnings.append(f"Row {i + 1}: normalisation error — {e}")
         elif fmt == "llm_parsed":

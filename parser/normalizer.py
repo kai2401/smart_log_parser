@@ -322,7 +322,7 @@ def normalise_record(
         # AI header inference — runs once per unique header set, result is cached
         from parser.header_inference import get_or_infer_mapping
 
-        ai_mapping, _ = get_or_infer_mapping(list(flat_raw.keys()), filename)
+        ai_mapping, _, ai_unmapped = get_or_infer_mapping(list(flat_raw.keys()), filename)
 
         for k, v in flat_raw.items():
             key = k.lower().strip()
@@ -381,6 +381,10 @@ def normalise_record(
                 out["raw_message"] = " | ".join(raw_msg_candidates)
             else:
                 out["raw_message"] = json.dumps(flat_raw, default=str)
+
+        # Store unmapped columns so the UI can surface them
+        if ai_unmapped:
+            metadata["ai_unmapped_columns"] = ai_unmapped
 
         # ── Default Injection for structured path ─────────────────────
         if not out.get("tool_id") or out.get("tool_id") == "UNKNOWN":

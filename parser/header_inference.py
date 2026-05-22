@@ -40,39 +40,48 @@ _ALL_ALIASES: set[str] = (
 )
 
 
+def _compute_unmapped(columns: list[str], mapping: dict[str, str]) -> list[str]:
+    """
+    Columns that are neither in the AI mapping nor covered by hardcoded aliases.
+    These are the ones that truly fell through to raw metadata.
+    """
+    mapped_keys = set(mapping.keys()) | {k.lower() for k in mapping.keys()}
+    return [
+        col for col in columns
+        if col not in mapped_keys
+        and col.lower().strip() not in _ALL_ALIASES
+    ]
+
+
 def get_or_infer_mapping(
     columns: list[str], filename: str = ""
-) -> tuple[dict[str, str], bool]:
+) -> tuple[dict[str, str], bool, list[str]]:
     """
-    Return (mapping, was_cache_hit).
+    Return (mapping, was_cache_hit, unmapped_columns).
 
-    mapping: {raw_column -> canonical_field}, empty dict means fall back to aliases.
-    was_cache_hit: True when the result was served from DB cache.
-
-    1. Return early if no API key.
-    2. Compute fingerprint and check DB cache (returns True for cache hit).
-    3. If all columns covered by hardcoded aliases, skip LLM.
-    4. Call LLM on cache miss, persist non-empty result.
+    mapping:          {raw_column -> canonical_field}
+    was_cache_hit:    True when the result was served from DB cache
+    unmapped_columns: columns not in mapping and not covered by hardcoded aliases
     """
     if not columns:
-        return {}, False
+        return {}, False, []
 
     if not _api_key_available():
-        return {}, False
+        return {}, False, []
 
     fingerprint = db._make_fingerprint(columns)
 
-    # Cache hit — second element True so callers can distinguish hit from new inference
+    # Cache hit
     cached = db.get_header_mapping(fingerprint)
     if cached is not None:
         logger.debug(f"Header mapping cache hit for fingerprint {fingerprint[:8]}...")
-        return cached, True
+        return cached, True, _compute_unmapped(columns, cached)
 
     # All columns already known — skip LLM
     lower_cols = {c.lower().strip() for c in columns}
     if lower_cols.issubset(_ALL_ALIASES):
         logger.debug("All columns covered by hardcoded aliases — skipping LLM inference")
-        return {}, False
+        return {}, False, []
 
     # Cache miss — call LLM
     logger.debug(f"Header mapping cache miss for {len(columns)} columns — calling LLM")
@@ -82,4 +91,4 @@ def get_or_infer_mapping(
         db.save_header_mapping(fingerprint, mapping, filename)
         logger.debug(f"Inferred and cached {len(mapping)} column mappings for {filename!r}")
 
-    return mapping, False
+    return mapping, False, _compute_unmapped(columns, mapping)
